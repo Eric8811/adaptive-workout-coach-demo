@@ -51,8 +51,102 @@ type Exercise = {
   tips?: string[]
 }
 
+type DemoScenario = {
+  id: string
+  label: string
+  summary: string
+  profile: UserProfile
+  selectedDayIndex: number
+  completedDayIndices: number[]
+  adjustment?: 'none' | 'short' | 'tired' | 'machine_taken'
+  checkIn?: CheckIn
+}
+
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const STORAGE_KEY = 'ai_fitness_coach_demo_v1'
+const REGULAR_ACTIVITY_OPTIONS = [
+  'No regular sport',
+  'Walking',
+  'Running',
+  'Cycling',
+  'Swim',
+  'Tennis',
+]
+
+const DEMO_SCENARIOS: DemoScenario[] = [
+  {
+    id: 'busy_beginner',
+    label: 'Busy beginner',
+    summary: 'A first gym routine with lower friction, simpler movements, and consistency-first guidance.',
+    profile: {
+      goal: 'stay_consistent',
+      experience: 'beginner',
+      weeklyDays: 3,
+      duration: 35,
+      location: 'gym',
+      equipment: ['Dumbbells', 'Basic machines', 'Bench'],
+      activities: ['No regular sport'],
+    },
+    selectedDayIndex: 1,
+    completedDayIndices: [0],
+    adjustment: 'short',
+    checkIn: {
+      completionRate: 65,
+      energy: 3,
+      sleepQuality: 3,
+      fatigue: 2,
+      note: 'Still getting comfortable with the gym flow.',
+    },
+  },
+  {
+    id: 'hybrid_week',
+    label: 'Swim + tennis week',
+    summary: 'Gym volume is balanced around other weekly activity so the plan still feels realistic.',
+    profile: {
+      goal: 'general_fitness',
+      experience: 'returning',
+      weeklyDays: 4,
+      duration: 40,
+      location: 'gym',
+      equipment: ['Dumbbells', 'Basic machines', 'Bench'],
+      activities: ['Swim', 'Tennis'],
+    },
+    selectedDayIndex: 2,
+    completedDayIndices: [0, 1],
+    adjustment: 'machine_taken',
+    checkIn: {
+      completionRate: 80,
+      energy: 3,
+      sleepQuality: 3,
+      fatigue: 3,
+      note: 'Tennis added more upper-body fatigue than expected.',
+    },
+  },
+  {
+    id: 'low_energy',
+    label: 'Low-energy week',
+    summary: 'The plan stays alive even when recovery is off and the week does not go smoothly.',
+    profile: {
+      goal: 'stay_consistent',
+      experience: 'returning',
+      weeklyDays: 4,
+      duration: 40,
+      location: 'gym',
+      equipment: ['Dumbbells', 'Basic machines', 'Bench'],
+      activities: ['Running'],
+    },
+    selectedDayIndex: 1,
+    completedDayIndices: [0],
+    adjustment: 'tired',
+    checkIn: {
+      completionRate: 55,
+      energy: 2,
+      sleepQuality: 2,
+      fatigue: 4,
+      note: 'Running volume was high and recovery slipped.',
+    },
+  },
+]
 
 const EXERCISE_LIBRARY: Record<string, Exercise> = {
   // --- CHEST ---
@@ -214,8 +308,19 @@ const EXERCISE_LIBRARY: Record<string, Exercise> = {
     muscle: 'Back',
     equipment: 'Cable',
     videoUrl: 'https://www.youtube.com/embed/rep-qVOkqgk',
-    alternatives: ['Dumbbell Lateral Raise', 'Seated Row'],
+    alternatives: ['Rear Delt Raise', 'Chest-supported Row'],
     tips: ['Pull toward your forehead', 'Keep your elbows high', 'Rotate your hands back at the end of the movement'],
+  },
+  'Rear Delt Raise': {
+    name: 'Rear Delt Raise',
+    sets: 3,
+    reps: '12–15',
+    muscle: 'Shoulders',
+    equipment: 'Dumbbell',
+    videoUrl: 'https://www.youtube.com/embed/a2S4pCIVZGw',
+    backupVideoUrl: 'https://www.youtube.com/watch?v=a2S4pCIVZGw',
+    alternatives: ['Face Pulls', 'Chest-supported Row'],
+    tips: ['Hinge slightly at the hips and keep a soft bend in the elbows', 'Raise the weights wide rather than pulling backward', 'Pause briefly at shoulder height before lowering'],
   },
 
   // --- ARMS ---
@@ -270,6 +375,17 @@ const EXERCISE_LIBRARY: Record<string, Exercise> = {
     videoUrl: 'https://www.youtube.com/embed/_9p8V8Uj0uY',
     alternatives: ['Tricep Pushdown', 'Bench Dips'],
     tips: ['Keep your upper arms stationary', 'Extend your arms fully overhead', 'Engage your core to avoid arching your back'],
+  },
+  'Bench Dips': {
+    name: 'Bench Dips',
+    sets: 3,
+    reps: '10–15',
+    muscle: 'Triceps',
+    equipment: 'Bodyweight',
+    videoUrl: 'https://www.youtube.com/embed/jCrsPTAjlgI',
+    backupVideoUrl: 'https://www.youtube.com/watch?v=jCrsPTAjlgI',
+    alternatives: ['Overhead Dumbbell Extension', 'Tricep Pushdown'],
+    tips: ['Keep your shoulders down and chest lifted', 'Lower until your elbows reach about 90 degrees', 'Press through your palms without shrugging your shoulders'],
   },
 
   // --- LEGS ---
@@ -347,6 +463,28 @@ const EXERCISE_LIBRARY: Record<string, Exercise> = {
     alternatives: ['Split Squat', 'Step-up'],
     tips: ['Take a large step forward', 'Keep your torso upright', 'Your back knee should almost touch the floor'],
   },
+  'Split Squat': {
+    name: 'Split Squat',
+    sets: 3,
+    reps: '8 each side',
+    muscle: 'Legs',
+    equipment: 'Bodyweight',
+    videoUrl: 'https://www.youtube.com/embed/REflwhg0jNs',
+    backupVideoUrl: 'https://www.youtube.com/watch?v=REflwhg0jNs',
+    alternatives: ['Step-up', 'Walking Lunge'],
+    tips: ['Set your feet hip-width apart instead of walking a tight line', 'Drop straight down with control', 'Drive through the front foot to return to standing'],
+  },
+  'Step-up': {
+    name: 'Step-up',
+    sets: 3,
+    reps: '8 each side',
+    muscle: 'Legs',
+    equipment: 'Bodyweight',
+    videoUrl: 'https://www.youtube.com/embed/M1SQgm5qA78',
+    backupVideoUrl: 'https://www.youtube.com/watch?v=M1SQgm5qA78',
+    alternatives: ['Split Squat', 'Walking Lunge'],
+    tips: ['Use a stable bench or box', 'Drive through the whole working foot', 'Control the lowering phase instead of dropping down'],
+  },
 
   // --- CORE & CARDIO ---
   'Plank': {
@@ -387,8 +525,19 @@ const EXERCISE_LIBRARY: Record<string, Exercise> = {
     muscle: 'Cardio',
     equipment: 'Treadmill',
     videoUrl: 'https://www.youtube.com/embed/JjB2JbdyRs0',
-    alternatives: ['Flat Walk', 'Bike'],
+    alternatives: ['March in Place', 'Step-up'],
     tips: ['Maintain a steady pace', 'Avoid holding onto the handrails', 'Breathe deeply and consistently'],
+  },
+  'March in Place': {
+    name: 'March in Place',
+    sets: 1,
+    reps: '8–12 min',
+    muscle: 'Cardio',
+    equipment: 'Bodyweight',
+    videoUrl: 'https://www.youtube.com/embed/giCVVA0KplE',
+    backupVideoUrl: 'https://www.youtube.com/watch?v=giCVVA0KplE',
+    alternatives: ['Step-up', 'Dead Bug'],
+    tips: ['Stay tall and keep your core lightly braced', 'Drive the knees smoothly instead of rushing the motion', 'Use your arms to keep a steady rhythm'],
   },
   'Pull-ups': {
     name: 'Pull-ups',
@@ -417,7 +566,7 @@ const EXERCISE_LIBRARY: Record<string, Exercise> = {
     muscle: 'Legs',
     equipment: 'Machine',
     videoUrl: 'https://www.youtube.com/embed/YyvSfVjQZgc',
-    alternatives: ['Goblet Squat', 'Leg Press'],
+    alternatives: ['Split Squat', 'Step-up'],
     tips: ['Pause at the top for a second', 'Keep your back against the seat', 'Control the weight on the way down'],
   },
   'Calf Raise': {
@@ -440,6 +589,397 @@ const EXERCISE_LIBRARY: Record<string, Exercise> = {
     alternatives: ['Plank', 'Dead Bug'],
     tips: ['Rotate your entire torso', 'Keep your feet off the ground if possible', 'Follow your hands with your eyes'],
   },
+}
+
+const MACHINE_FREE_FALLBACKS: Record<string, string[]> = {
+  'Machine Chest Press': ['Dumbbell Bench Press', 'Push-ups'],
+  'Machine Shoulder Press': ['Dumbbell Shoulder Press', 'Arnold Press'],
+  'Lat Pulldown': ['Chest-supported Row', 'Pull-ups'],
+  'Seated Row': ['Chest-supported Row', 'Single-arm Dumbbell Row'],
+  'Face Pulls': ['Rear Delt Raise', 'Chest-supported Row'],
+  'Tricep Pushdown': ['Bench Dips', 'Overhead Dumbbell Extension'],
+  'Cable Curl': ['Hammer Curl', 'Bicep Curl'],
+  'Cable Lateral Raise': ['Dumbbell Lateral Raise', 'Rear Delt Raise'],
+  'Leg Extension': ['Split Squat', 'Step-up'],
+  'Leg Curl': ['Glute Bridge', 'Romanian Deadlift'],
+  'Incline Walk': ['March in Place', 'Step-up'],
+}
+
+function isMachineBasedExercise(exercise: Exercise) {
+  return (
+    exercise.equipment === 'Machine' ||
+    exercise.equipment === 'Cable' ||
+    exercise.equipment.toLowerCase().includes('machine') ||
+    exercise.equipment.toLowerCase().includes('cable') ||
+    exercise.equipment.toLowerCase().includes('treadmill')
+  )
+}
+
+function getMachineFreeReplacement(exercise: Exercise, usedNames: Set<string>) {
+  const candidates = [
+    ...(MACHINE_FREE_FALLBACKS[exercise.name] || []),
+    ...exercise.alternatives,
+  ]
+
+  const nextName = candidates.find((candidate, index) => {
+    if (candidate === exercise.name) return false
+    if (candidates.indexOf(candidate) !== index) return false
+    if (usedNames.has(candidate)) return false
+    return Boolean(EXERCISE_LIBRARY[candidate])
+  })
+
+  if (!nextName) {
+    usedNames.add(exercise.name)
+    return exercise
+  }
+
+  const replacement = {
+    ...EXERCISE_LIBRARY[nextName],
+    sets: exercise.sets,
+    reps: exercise.reps,
+  }
+
+  usedNames.add(replacement.name)
+  return replacement
+}
+
+function getTodayDayLabel() {
+  return DAYS[(new Date().getDay() + 6) % 7]
+}
+
+function getTodayDayIndex() {
+  return (new Date().getDay() + 6) % 7
+}
+
+function isBeginnerProfile(profile: UserProfile) {
+  return profile.experience === 'beginner' || profile.activities.includes('No regular sport')
+}
+
+function prefersMachineFree(profile: UserProfile) {
+  return (
+    profile.location === 'home' ||
+    profile.equipment.includes('Bodyweight only') ||
+    !profile.equipment.includes('Basic machines')
+  )
+}
+
+function adaptExercisesToProfile(exercises: Exercise[], profile: UserProfile) {
+  const usedNames = new Set<string>()
+  const needsMachineFree = prefersMachineFree(profile)
+  const needsBeginnerFriendly = isBeginnerProfile(profile)
+
+  const beginnerFallbacks: Record<string, string> = {
+    'Romanian Deadlift': 'Glute Bridge',
+    'Russian Twists': 'Dead Bug',
+    'Arnold Press': 'Dumbbell Shoulder Press',
+  }
+
+  return exercises.map((exercise) => {
+    let nextExercise = exercise
+
+    if (needsMachineFree && isMachineBasedExercise(nextExercise)) {
+      nextExercise = getMachineFreeReplacement(nextExercise, usedNames)
+    }
+
+    if (needsMachineFree && nextExercise.name === 'Incline Walk') {
+      nextExercise = {
+        ...EXERCISE_LIBRARY['March in Place'],
+        sets: nextExercise.sets,
+        reps: nextExercise.reps,
+      }
+    }
+
+    if (needsBeginnerFriendly && beginnerFallbacks[nextExercise.name]) {
+      const fallback = EXERCISE_LIBRARY[beginnerFallbacks[nextExercise.name]]
+      nextExercise = {
+        ...fallback,
+        sets: nextExercise.sets,
+        reps: nextExercise.reps,
+      }
+    }
+
+    usedNames.add(nextExercise.name)
+    return nextExercise
+  })
+}
+
+function getActivityNotes(profile: UserProfile) {
+  const notes: string[] = []
+
+  if (isBeginnerProfile(profile)) {
+    notes.push('The plan stays simpler so you can learn the gym flow without overthinking every decision.')
+  }
+
+  if (profile.activities.includes('Running') || profile.activities.includes('Cycling')) {
+    notes.push('Running and cycling already load the legs, so lower-body gym work stays more manageable.')
+  }
+
+  if (profile.activities.includes('Swim')) {
+    notes.push('Swimming already adds upper-body volume, so gym sessions keep pressing and pulling work tighter.')
+  }
+
+  if (profile.activities.includes('Tennis')) {
+    notes.push('Tennis adds shoulder and rotation load, so the week keeps at least one lighter gym touchpoint.')
+  }
+
+  if (!notes.length) {
+    notes.push('The plan stays realistic enough to finish, not just impressive on paper.')
+  }
+
+  return notes
+}
+
+function getPrototypeNarrative(profile: UserProfile) {
+  if (profile.activities.includes('Swim') || profile.activities.includes('Tennis')) {
+    return 'Built for people who want gym to work with the rest of their week, not compete with it.'
+  }
+
+  if (isBeginnerProfile(profile)) {
+    return 'Built for people who want a coach-like guide through gym friction, not another perfect plan to ignore.'
+  }
+
+  return 'Built for casual exercisers who want help staying consistent when time, energy, or equipment changes.'
+}
+
+function getWeeklyPlanMessaging(profile: UserProfile, weeklyPlan: WeekItem[]) {
+  if (weeklyPlan.some((item) => item.title.includes('(Light)'))) {
+    return {
+      title: 'This week protects momentum.',
+      body: 'Recovery markers were mixed, so the plan stays lighter to keep the habit alive without pushing fatigue higher.',
+      why: 'The product is optimizing for continuity, not forcing a harder week.',
+    }
+  }
+
+  if (profile.activities.includes('Swim') || profile.activities.includes('Tennis')) {
+    return {
+      title: 'This gym week is balanced around your other training.',
+      body: getActivityNotes(profile).slice(0, 2).join(' '),
+      why: 'Gym is one part of the week, not the whole system.',
+    }
+  }
+
+  if (isBeginnerProfile(profile)) {
+    return {
+      title: 'This week keeps the bar realistic.',
+      body: 'The split stays simpler and lower-friction so you can learn the flow, finish sessions, and build confidence first.',
+      why: 'For beginners, consistency beats complexity.',
+    }
+  }
+
+  return {
+    title: 'This week is built to stay finishable.',
+    body: 'The plan keeps a strong training signal while leaving room for normal life interruptions and lower-energy days.',
+    why: 'The product is optimizing for follow-through, not ideal routines.',
+  }
+}
+
+function getTodaySessionMessaging(profile: UserProfile, workout: WeekItem | null) {
+  if (!workout) {
+    return {
+      title: 'Built to help you keep going.',
+      body: 'Today should feel clear, not overwhelming.',
+    }
+  }
+
+  if (workout.title.includes('Recovery') || workout.intensity === 'recovery') {
+    return {
+      title: 'Today protects the routine without asking for much friction.',
+      body: 'Recovery sessions still count because they keep the habit moving when energy or load is already high.',
+    }
+  }
+
+  if ((profile.activities.includes('Running') || profile.activities.includes('Cycling')) && workout.title === 'Lower Body') {
+    return {
+      title: 'This lower-body day stays realistic around the rest of your week.',
+      body: 'You already have leg-heavy activity, so today focuses on enough stimulus without overloading recovery.',
+    }
+  }
+
+  if ((profile.activities.includes('Swim') || profile.activities.includes('Tennis')) && ['Upper Body', 'Push', 'Pull'].includes(workout.title)) {
+    return {
+      title: 'This session fits around your other upper-body load.',
+      body: 'The goal is to support progress without treating gym as the only training stress in your week.',
+    }
+  }
+
+  if (isBeginnerProfile(profile)) {
+    return {
+      title: 'Today is designed to feel straightforward.',
+      body: 'The lineup stays simpler so you can focus on finishing the session instead of figuring everything out on the fly.',
+    }
+  }
+
+  return {
+    title: 'Today is built to survive real-life friction.',
+    body: 'If time, energy, or equipment changes, the product should help you keep going instead of restarting next week.',
+  }
+}
+
+function getAdjustmentMessaging(adjustment: 'none' | 'short' | 'tired' | 'machine_taken') {
+  switch (adjustment) {
+    case 'short':
+      return {
+        title: 'We kept the high-value moves.',
+        body: 'When time is short, the fastest win is preserving the main movement pattern and trimming accessory volume.',
+      }
+    case 'tired':
+      return {
+        title: 'Today shifts from progression to consistency.',
+        body: 'Low-energy days still count. This version lowers recovery cost so the routine does not break.',
+      }
+    case 'machine_taken':
+      return {
+        title: 'The training intent stays the same.',
+        body: 'These swaps keep a similar push, pull, or lower-body pattern without waiting around for a machine to open up.',
+      }
+    default:
+      return null
+  }
+}
+
+function getAppliedWorkoutMessaging(workout: WeekItem | null) {
+  if (!workout || !workout.exercises || !workout.originalExercises) return null
+  if (JSON.stringify(workout.exercises) === JSON.stringify(workout.originalExercises)) return null
+
+  if (workout.exercises.length < workout.originalExercises.length) {
+    return 'This session was shortened to keep the highest-value work when time gets tight.'
+  }
+
+  const originalMachineCount = workout.originalExercises.filter((exercise) => isMachineBasedExercise(exercise)).length
+  const currentMachineCount = workout.exercises.filter((exercise) => isMachineBasedExercise(exercise)).length
+
+  if (currentMachineCount < originalMachineCount) {
+    return 'This lineup was adapted to easier-to-access equipment so you can keep moving without waiting.'
+  }
+
+  if (workout.exercises.every((exercise) => ['Cardio', 'Core'].includes(exercise.muscle))) {
+    return 'This session was softened to reduce recovery cost while keeping the routine alive.'
+  }
+
+  return 'Today has already been adapted to match your current constraints.'
+}
+
+function getReflectMessaging(checkIn: CheckIn, profile: UserProfile) {
+  const activityContext = getActivityNotes(profile)[0]
+
+  if (checkIn.fatigue >= 4 || checkIn.energy <= 2 || checkIn.sleepQuality <= 2) {
+    return {
+      title: 'Next week should feel easier to complete.',
+      recommendation: 'Recovery markers were lower this week, so the plan should reduce friction before trying to add more load.',
+      reason: `${activityContext} The next block should protect continuity first.`,
+    }
+  }
+
+  if (checkIn.completionRate >= 80 && checkIn.fatigue <= 2) {
+    return {
+      title: 'You have room to progress a little.',
+      recommendation: 'Consistency and recovery both looked solid, so next week can add a small amount of volume without changing the overall structure.',
+      reason: 'The product only progresses the plan when the current week looks sustainable.',
+    }
+  }
+
+  return {
+    title: 'The right move is to keep the bar realistic.',
+    recommendation: 'This week suggests the plan is close, but still benefits from staying steady before asking for more.',
+    reason: 'The goal is to help you repeat a doable week, not chase a perfect one.',
+  }
+}
+
+function getAdaptedSessionCount(weeklyPlan: WeekItem[]) {
+  return weeklyPlan.filter((item) => JSON.stringify(item.exercises) !== JSON.stringify(item.originalExercises)).length
+}
+
+function getProgressMessaging(profile: UserProfile, weeklyPlan: WeekItem[]) {
+  const activeWorkouts = weeklyPlan.filter((item) => item.intensity !== 'rest')
+  const completedCount = weeklyPlan.filter((item) => item.completed).length
+  const completionRate = activeWorkouts.length ? Math.round((completedCount / activeWorkouts.length) * 100) : 0
+  const adaptedCount = getAdaptedSessionCount(weeklyPlan)
+
+  if (adaptedCount > 0) {
+    return {
+      headline: `You adapted ${adaptedCount} session${adaptedCount > 1 ? 's' : ''} instead of skipping them.`,
+      body: 'That is the core behavior this product is built to support: keep the routine alive when the original plan stops fitting the day.',
+      nextFocus: 'Keep one easy fallback in play for busy or low-energy days.',
+      note: 'A good week is not perfect. It is repeatable.',
+      highlightLabel: 'Adjusted',
+      highlightValue: String(adaptedCount),
+    }
+  }
+
+  if (completionRate >= 75) {
+    return {
+      headline: 'You kept the routine moving this week.',
+      body: 'Completion stayed strong, which matters more than building the most aggressive plan on paper.',
+      nextFocus: profile.activities.includes('Tennis') || profile.activities.includes('Swim')
+        ? 'Keep balancing gym volume around your other training load.'
+        : 'Keep protecting the times of day that make training easiest to repeat.',
+      note: 'Consistency compounds faster than occasional perfect weeks.',
+      highlightLabel: 'Weekly Goal',
+      highlightValue: `${completionRate}%`,
+    }
+  }
+
+  return {
+    headline: 'The opportunity is making next week easier to finish.',
+    body: 'Lower completion is useful signal. It means the plan should reduce friction before it asks for more discipline.',
+    nextFocus: 'Use the adjustment tools earlier instead of waiting for the session to fall apart.',
+    note: 'The product should meet the user where the week actually is.',
+    highlightLabel: 'Weekly Goal',
+    highlightValue: `${completionRate}%`,
+  }
+}
+
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  const safeRadius = Math.min(radius, width / 2, height / 2)
+
+  ctx.beginPath()
+  ctx.moveTo(x + safeRadius, y)
+  ctx.lineTo(x + width - safeRadius, y)
+  ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius)
+  ctx.lineTo(x + width, y + height - safeRadius)
+  ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height)
+  ctx.lineTo(x + safeRadius, y + height)
+  ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius)
+  ctx.lineTo(x, y + safeRadius)
+  ctx.quadraticCurveTo(x, y, x + safeRadius, y)
+  ctx.closePath()
+}
+
+function getWrappedLines(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines = 3
+) {
+  const words = text.split(' ')
+  const lines: string[] = []
+  let currentLine = ''
+
+  words.forEach((word) => {
+    const tentative = currentLine ? `${currentLine} ${word}` : word
+    if (ctx.measureText(tentative).width <= maxWidth) {
+      currentLine = tentative
+      return
+    }
+
+    if (currentLine) lines.push(currentLine)
+    currentLine = word
+  })
+
+  if (currentLine) lines.push(currentLine)
+
+  if (lines.length <= maxLines) return lines
+
+  const trimmed = lines.slice(0, maxLines)
+  trimmed[maxLines - 1] = `${trimmed[maxLines - 1].replace(/\s+\S*$/, '')}…`
+  return trimmed
 }
 
 function getWorkoutExercises(workoutTitle: string): Exercise[] {
@@ -490,10 +1030,32 @@ function getWorkoutExercises(workoutTitle: string): Exercise[] {
   }
 }
 
-function generateWeeklyPlan(profile: UserProfile): WeekItem[] {
+function generateWeeklyPlan(profile: UserProfile, options?: { startFromToday?: boolean }): WeekItem[] {
   let workoutTemplates: { title: string; duration: number; intensity: WeekItem['intensity'] }[] = []
+  const beginnerBase = isBeginnerProfile(profile)
 
-  if (profile.weeklyDays === 2) {
+  if (beginnerBase && profile.weeklyDays === 2) {
+    workoutTemplates = [
+      { title: 'Full Body', duration: Math.max(25, profile.duration - 5), intensity: 'light' },
+      { title: 'Recovery', duration: 20, intensity: 'recovery' },
+      { title: 'Full Body', duration: Math.max(25, profile.duration - 5), intensity: 'full' },
+    ]
+  } else if (beginnerBase && profile.weeklyDays === 3) {
+    workoutTemplates = [
+      { title: 'Full Body', duration: Math.max(25, profile.duration - 5), intensity: 'full' },
+      { title: 'Recovery', duration: 20, intensity: 'recovery' },
+      { title: 'Upper Body', duration: Math.max(25, profile.duration - 5), intensity: 'light' },
+      { title: 'Light Activity', duration: 20, intensity: 'light' },
+    ]
+  } else if (beginnerBase && profile.weeklyDays >= 4) {
+    workoutTemplates = [
+      { title: 'Upper Body', duration: Math.max(25, profile.duration - 5), intensity: 'full' },
+      { title: 'Lower Body', duration: Math.max(25, profile.duration - 10), intensity: 'light' },
+      { title: 'Recovery', duration: 20, intensity: 'recovery' },
+      { title: 'Full Body', duration: Math.max(25, profile.duration - 5), intensity: 'light' },
+      { title: 'Light Activity', duration: 20, intensity: 'light' },
+    ]
+  } else if (profile.weeklyDays === 2) {
     workoutTemplates = [
       { title: 'Full Body', duration: profile.duration, intensity: 'full' },
       { title: 'Recovery', duration: 20, intensity: 'recovery' },
@@ -526,11 +1088,23 @@ function generateWeeklyPlan(profile: UserProfile): WeekItem[] {
 
   if (profile.activities.includes('Swim')) {
     workoutTemplates = workoutTemplates.map((item) =>
+      ['Upper Body', 'Push', 'Pull'].includes(item.title)
+        ? {
+            ...item,
+            duration: Math.max(25, item.duration - 5),
+            intensity: item.intensity === 'full' ? 'light' : item.intensity,
+          }
+        : item
+    )
+  }
+
+  if (profile.activities.includes('Running') || profile.activities.includes('Cycling')) {
+    workoutTemplates = workoutTemplates.map((item) =>
       item.title === 'Lower Body'
         ? {
             ...item,
-            duration: Math.max(25, item.duration - 10),
-            intensity: 'light',
+            duration: Math.max(25, item.duration - 5),
+            intensity: item.intensity === 'full' ? 'light' : item.intensity,
           }
         : item
     )
@@ -539,6 +1113,14 @@ function generateWeeklyPlan(profile: UserProfile): WeekItem[] {
   if (profile.activities.includes('Tennis')) {
     workoutTemplates = workoutTemplates.map((item, index) => {
       const isLastTrainingDay = index === workoutTemplates.length - 1
+
+      if (['Push', 'Upper Body'].includes(item.title)) {
+        return {
+          ...item,
+          duration: Math.max(25, item.duration - 5),
+          intensity: item.intensity === 'full' ? 'light' : item.intensity,
+        }
+      }
 
       return isLastTrainingDay
         ? {
@@ -550,10 +1132,45 @@ function generateWeeklyPlan(profile: UserProfile): WeekItem[] {
     })
   }
 
+  const startFromToday = options?.startFromToday ?? false
+  const startIndex = startFromToday ? getTodayDayIndex() : 0
+  const remainingDays = DAYS.length - startIndex
+  let scheduledTemplates = workoutTemplates
+
+  if (startFromToday && remainingDays < scheduledTemplates.length) {
+    scheduledTemplates = scheduledTemplates.slice(0, remainingDays)
+
+    if (remainingDays <= 3) {
+      scheduledTemplates = scheduledTemplates.map((item, index) =>
+        index === scheduledTemplates.length - 1 && item.intensity === 'full'
+          ? {
+              title: 'Light Activity',
+              duration: 20,
+              intensity: 'light',
+            }
+          : item
+      )
+    }
+  }
+
   const week: WeekItem[] = DAYS.map((day, index) => {
-    if (index < workoutTemplates.length) {
-      const template = workoutTemplates[index]
-      const exercises = getWorkoutExercises(template.title)
+    if (startFromToday && index < startIndex) {
+      return {
+        day,
+        title: 'Earlier this week',
+        duration: 0,
+        intensity: 'rest',
+        completed: false,
+        exercises: [],
+        originalExercises: [],
+      }
+    }
+
+    const templateIndex = index - startIndex
+
+    if (templateIndex >= 0 && templateIndex < scheduledTemplates.length) {
+      const template = scheduledTemplates[templateIndex]
+      const exercises = adaptExercisesToProfile(getWorkoutExercises(template.title), profile)
       return {
         day,
         ...template,
@@ -610,7 +1227,7 @@ function App() {
       // Backfill exercises for existing plans that don't have them
       return plan.map(item => {
         if (item.intensity !== 'rest' && (!item.exercises || item.exercises.length === 0)) {
-          const exercises = getWorkoutExercises(item.title.replace(' (Light)', ''))
+          const exercises = adaptExercisesToProfile(getWorkoutExercises(item.title.replace(' (Light)', '')), profile)
           return {
             ...item,
             exercises: exercises,
@@ -655,8 +1272,14 @@ function App() {
     if (saved) return JSON.parse(saved).selectedDay || null
     return null
   })
+  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) return JSON.parse(saved).activeScenarioId || null
+    return null
+  })
 
   const [onboardingStep, setOnboardingStep] = useState(1)
+  const [setupMode, setSetupMode] = useState<'entry' | 'build' | 'scenario'>('entry')
   const [isDemoMenuOpen, setIsDemoMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
 
@@ -667,6 +1290,9 @@ function App() {
   }, [])
 
   const [modalExercise, setModalExercise] = useState<Exercise | null>(null)
+  const [isSharingWorkout, setIsSharingWorkout] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
+  const [todayActionNote, setTodayActionNote] = useState('')
 
   useEffect(() => {
     const data = {
@@ -677,9 +1303,10 @@ function App() {
       checkIn,
       progress,
       selectedDay,
+      activeScenarioId,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-  }, [activeTab, profile, weeklyPlan, adjustment, checkIn, progress, selectedDay])
+  }, [activeTab, profile, weeklyPlan, adjustment, checkIn, progress, selectedDay, activeScenarioId])
 
   const isFirstRender = useRef(true)
 
@@ -693,6 +1320,18 @@ function App() {
 
     return focusMap[profile.goal]
   }, [profile.goal])
+  const activeScenario = useMemo(() => DEMO_SCENARIOS.find((scenario) => scenario.id === activeScenarioId) || null, [activeScenarioId])
+  const showMobileHeaderBack = activeTab === 'setup' && setupMode !== 'entry'
+
+  const planMessaging = useMemo(() => getWeeklyPlanMessaging(profile, weeklyPlan), [profile, weeklyPlan])
+  const reflectMessaging = useMemo(() => getReflectMessaging(checkIn, profile), [checkIn, profile])
+  const progressMessaging = useMemo(() => getProgressMessaging(profile, weeklyPlan), [profile, weeklyPlan])
+  const prototypeNarrative = useMemo(() => getPrototypeNarrative(profile), [profile])
+  const activityNotes = useMemo(() => getActivityNotes(profile), [profile])
+  const activeWorkoutCount = useMemo(() => weeklyPlan.filter((item) => item.intensity !== 'rest').length, [weeklyPlan])
+  const completedWorkoutCount = useMemo(() => weeklyPlan.filter((item) => item.completed).length, [weeklyPlan])
+  const currentWeekCompletionRate = activeWorkoutCount ? Math.round((completedWorkoutCount / activeWorkoutCount) * 100) : 0
+  const adaptedSessionCount = useMemo(() => getAdaptedSessionCount(weeklyPlan), [weeklyPlan])
 
   const todayWorkout = useMemo(() => {
     if (!weeklyPlan || weeklyPlan.length === 0) return null
@@ -702,9 +1341,26 @@ function App() {
       if (selected) return selected
     }
 
+    const todayIndex = getTodayDayIndex()
+    const exactToday = weeklyPlan[todayIndex]
+
+    if (exactToday && exactToday.intensity !== 'rest') {
+      return exactToday
+    }
+
+    const nextUpcoming = weeklyPlan.slice(todayIndex + 1).find((item) => item.intensity !== 'rest' && !item.completed)
+    if (nextUpcoming) return nextUpcoming
+
+    const latestAvailable = [...weeklyPlan.slice(0, todayIndex)].reverse().find((item) => item.intensity !== 'rest')
+    if (latestAvailable) return latestAvailable
+
     const firstWorkout = weeklyPlan.find((item) => item.intensity !== 'rest')
     return firstWorkout || weeklyPlan[0]
   }, [weeklyPlan, selectedDay])
+
+  const todayMessaging = useMemo(() => getTodaySessionMessaging(profile, todayWorkout), [profile, todayWorkout])
+  const adjustmentMessaging = useMemo(() => getAdjustmentMessaging(adjustment), [adjustment])
+  const appliedWorkoutMessaging = useMemo(() => getAppliedWorkoutMessaging(todayWorkout), [todayWorkout])
 
   const adjustedExercises = useMemo(() => {
     if (adjustment === 'none' || !todayWorkout || !todayWorkout.exercises) return []
@@ -714,59 +1370,54 @@ function App() {
     }
 
     if (adjustment === 'tired') {
-      return getWorkoutExercises('Recovery')
+      return adaptExercisesToProfile(getWorkoutExercises('Recovery'), profile)
     }
 
     if (adjustment === 'machine_taken') {
-      return todayWorkout.exercises.map((ex: Exercise) => {
-        const isMachine =
-          ex.equipment === 'Machine' ||
-          ex.equipment === 'Cable' ||
-          ex.equipment.toLowerCase().includes('machine') ||
-          ex.equipment.toLowerCase().includes('cable') ||
-          ex.equipment.toLowerCase().includes('treadmill')
+      const usedNames = new Set<string>()
 
-        if (isMachine) {
-          const nextAltName = ex.alternatives[0]
-          if (!nextAltName) return ex
-
-          if (EXERCISE_LIBRARY[nextAltName]) {
-            return {
-              ...EXERCISE_LIBRARY[nextAltName],
-              sets: ex.sets,
-              reps: ex.reps,
-            }
-          }
-
-          return {
-            name: nextAltName,
-            sets: ex.sets,
-            reps: ex.reps,
-            muscle: ex.muscle,
-            equipment:
-              nextAltName.toLowerCase().includes('push') ||
-              nextAltName.toLowerCase().includes('dip') ||
-              nextAltName.toLowerCase().includes('bodyweight') ||
-              nextAltName.toLowerCase().includes('plank')
-                ? 'Bodyweight'
-                : 'Dumbbell',
-            alternatives: [ex.name],
-            tips: ['Focus on controlled movement', 'Maintain proper form throughout', 'Breathe consistently during the set'],
-            searchQuery: `${nextAltName} exercise demo`,
-          }
+      return todayWorkout.exercises.map((exercise: Exercise) => {
+        if (!isMachineBasedExercise(exercise)) {
+          usedNames.add(exercise.name)
+          return exercise
         }
-        return ex
+
+        return getMachineFreeReplacement(exercise, usedNames)
       })
     }
 
     return []
-  }, [adjustment, todayWorkout])
+  }, [adjustment, todayWorkout, profile])
 
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false
     }
   }, [])
+
+  useEffect(() => {
+    if (!toastMessage) return
+
+    const timeoutId = window.setTimeout(() => {
+      setToastMessage('')
+    }, 2400)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [toastMessage])
+
+  useEffect(() => {
+    setTodayActionNote('')
+  }, [todayWorkout?.day])
+
+  useEffect(() => {
+    if (!isMobile) return
+
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: 'auto',
+    })
+  }, [isMobile, activeTab, setupMode, onboardingStep])
 
   function updateEquipment(item: string) {
     setProfile((prev) => {
@@ -782,20 +1433,34 @@ function App() {
 
   function updateActivities(item: string) {
     setProfile((prev) => {
-      const exists = prev.activities.includes(item)
+      if (item === 'No regular sport') {
+        const exists = prev.activities.includes(item)
+        return {
+          ...prev,
+          activities: exists ? [] : ['No regular sport'],
+        }
+      }
+
+      const activities = prev.activities.filter((entry) => entry !== 'No regular sport')
+      const exists = activities.includes(item)
+
       return {
         ...prev,
         activities: exists
-          ? prev.activities.filter((x) => x !== item)
-          : [...prev.activities, item],
+          ? activities.filter((x) => x !== item)
+          : [...activities, item],
       }
     })
   }
 
   function handleGenerateWeek() {
-    const newPlan = generateWeeklyPlan(profile)
+    const newPlan = generateWeeklyPlan(profile, { startFromToday: true })
     setWeeklyPlan(newPlan)
     setSelectedDay(null)
+    setAdjustment('none')
+    setTodayActionNote('')
+    setActiveScenarioId(null)
+    setSetupMode('entry')
     setActiveTab('plan')
     setOnboardingStep(1)
   }
@@ -806,25 +1471,51 @@ function App() {
     window.location.reload()
   }
 
-  function handleTrySampleScenario() {
-    const sampleProfile: UserProfile = {
-      goal: 'build_muscle',
-      experience: 'some_experience',
-      weeklyDays: 4,
-      duration: 45,
-      location: 'gym',
-      equipment: ['Dumbbells', 'Basic machines', 'Bench'],
-      activities: ['Running'],
+  function handleMobileHeaderBack() {
+    if (activeTab !== 'setup') return
+
+    if (setupMode === 'build') {
+      if (onboardingStep > 1) {
+        setOnboardingStep((prev) => prev - 1)
+        return
+      }
+
+      setSetupMode('entry')
+      return
     }
-    const samplePlan = generateWeeklyPlan(sampleProfile)
-    // Mark first workout as done to show some progress
-    samplePlan[0].completed = true
-    
-    setProfile(sampleProfile)
+
+    if (setupMode === 'scenario') {
+      setSetupMode('entry')
+    }
+  }
+
+  function applyDemoScenario(scenario: DemoScenario) {
+    const todayIndex = getTodayDayIndex()
+    const completedIndices = scenario.completedDayIndices.filter((index) => index < todayIndex)
+    const samplePlan = generateWeeklyPlan(scenario.profile).map((item, index) => ({
+      ...item,
+      completed: completedIndices.includes(index),
+    }))
+
+    setProfile(scenario.profile)
     setWeeklyPlan(samplePlan)
-    setProgress({ totalCompleted: 1, streak: 1 })
-    setSelectedDay(samplePlan[1].day) // Select the second day as "today"
-    setActiveTab('today')
+    setProgress({
+      totalCompleted: completedIndices.length,
+      streak: completedIndices.length,
+    })
+    setSelectedDay(null)
+    setAdjustment('none')
+    setCheckIn(scenario.checkIn || {
+      completionRate: 80,
+      energy: 3,
+      sleepQuality: 3,
+      fatigue: 2,
+      note: '',
+    })
+    setTodayActionNote('')
+    setActiveScenarioId(scenario.id)
+    setSetupMode('entry')
+    setActiveTab('plan')
     setOnboardingStep(1)
   }
 
@@ -863,6 +1554,9 @@ function App() {
 
     setWeeklyPlan(nextPlan)
     setSelectedDay(null)
+    setAdjustment('none')
+    setTodayActionNote('')
+    setSetupMode('entry')
     setActiveTab('plan')
     // Reset check-in for next time
     setCheckIn({
@@ -889,12 +1583,371 @@ function App() {
     }))
   }
 
+  function getWorkoutShareMessaging() {
+    if (!todayWorkout) {
+      return {
+        eyebrow: 'today',
+        hook: 'the plan changed. the workout still happened.',
+        subcopy: 'Built around real-life consistency, not ideal routines.',
+        shareText: 'Today the plan changed, but the workout still happened.\n\nBuilt this concept around real-life consistency, not perfect routines.',
+        footerTitle: 'adaptive workout coach demo',
+        footerMeta: 'for days that do not go exactly to plan',
+      }
+    }
+
+    const isAdjusted = JSON.stringify(todayWorkout.exercises) !== JSON.stringify(todayWorkout.originalExercises)
+    const isRecoveryStyle = todayWorkout.intensity === 'recovery' || todayWorkout.title === 'Recovery'
+    const shareUrl = window.location.href
+    const shareLink = shareUrl.includes('127.0.0.1') || shareUrl.includes('localhost') ? '' : shareUrl
+
+    const eyebrow = isAdjusted ? 'today' : isRecoveryStyle ? 'small win' : 'showed up'
+
+    const hook = isAdjusted
+      ? 'the plan changed. the workout still happened.'
+      : isRecoveryStyle
+        ? 'recovery day still counts.'
+        : 'showing up is the whole point.'
+
+    const subcopy = isAdjusted
+      ? 'Short on time, low energy, no machine. The flow adapts so the routine still fits real life.'
+      : isRecoveryStyle
+        ? 'Not every session needs to feel intense. The routine just needs to keep moving.'
+        : 'Working on a workout concept that adapts before motivation disappears.'
+
+    const shareTextLines = [
+      isRecoveryStyle
+        ? 'Recovery day, but the routine stayed alive.'
+        : `Today the ${todayWorkout.title.toLowerCase()} workout still happened.`,
+      isAdjusted
+        ? 'The idea behind this demo: when time, energy, or equipment changes, the product should adapt instead of letting the habit break.'
+        : 'Built this concept around adherence first, not perfect plans on paper.',
+      shareLink,
+    ].filter(Boolean)
+
+    return {
+      eyebrow,
+      hook,
+      subcopy,
+      shareText: shareTextLines.join('\n\n'),
+      footerTitle: 'adaptive workout coach demo',
+      footerMeta: shareLink || 'for real-life consistency',
+    }
+  }
+
+  async function createWorkoutShareImage() {
+    if (!todayWorkout) return null
+
+    const canvas = document.createElement('canvas')
+    canvas.width = 1080
+    canvas.height = 1920
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+
+    const { eyebrow, hook, subcopy, footerTitle, footerMeta } = getWorkoutShareMessaging()
+    const exerciseList = (todayWorkout.exercises && todayWorkout.exercises.length > 0
+      ? todayWorkout.exercises
+      : adaptExercisesToProfile(getWorkoutExercises(todayWorkout.title.replace(' (Light)', '')), profile)
+    ).slice(0, 3)
+
+    const workoutLabel = `${todayWorkout.day} session`
+    const workoutTitle = todayWorkout.title
+    const stats = [
+      `${todayWorkout.duration} min`,
+      todayWorkout.intensity.charAt(0).toUpperCase() + todayWorkout.intensity.slice(1),
+      `${todayWorkout.exercises?.length || 0} exercises`,
+    ]
+
+    const backgroundGradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height)
+    backgroundGradient.addColorStop(0, '#f8f5ef')
+    backgroundGradient.addColorStop(1, '#f1ece4')
+    ctx.fillStyle = backgroundGradient
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    ctx.fillStyle = 'rgba(183, 204, 247, 0.26)'
+    ctx.beginPath()
+    ctx.arc(926, 212, 138, 0, Math.PI * 2)
+    ctx.fill()
+
+    ctx.fillStyle = 'rgba(212, 232, 219, 0.34)'
+    ctx.beginPath()
+    ctx.arc(168, 1450, 184, 0, Math.PI * 2)
+    ctx.fill()
+
+    const safeX = 92
+    const contentWidth = 896
+    const hookY = 306
+    const hookLineHeight = 92
+
+    ctx.fillStyle = '#162032'
+    ctx.font = '700 30px Inter, system-ui, sans-serif'
+    ctx.fillText('AI Fitness Coach', safeX, 118)
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.84)'
+    drawRoundedRect(ctx, safeX, 148, 126, 54, 27)
+    ctx.fill()
+
+    ctx.fillStyle = '#6f86b6'
+    ctx.font = '700 22px Inter, system-ui, sans-serif'
+    ctx.fillText(eyebrow.toUpperCase(), safeX + 24, 183)
+
+    ctx.fillStyle = '#162032'
+    ctx.font = '700 76px Inter, system-ui, sans-serif'
+    const hookLines = getWrappedLines(ctx, hook, contentWidth, 3)
+    hookLines.forEach((line, index) => {
+      ctx.fillText(line, safeX, hookY + index * hookLineHeight)
+    })
+
+    ctx.fillStyle = '#667085'
+    ctx.font = '500 34px Inter, system-ui, sans-serif'
+    const subcopyLines = getWrappedLines(ctx, subcopy, contentWidth - 12, 3)
+    const subcopyY = hookY + hookLines.length * hookLineHeight + 24
+    const subcopyLineHeight = 46
+    subcopyLines.forEach((line, index) => {
+      ctx.fillText(line, safeX, subcopyY + index * subcopyLineHeight)
+    })
+
+    const storyCardX = 78
+    const storyCardY = subcopyY + subcopyLines.length * subcopyLineHeight + 88
+    const storyCardWidth = 924
+    const storyCardHeight = 934
+
+    ctx.fillStyle = 'rgba(22, 32, 50, 0.08)'
+    drawRoundedRect(ctx, storyCardX, storyCardY + 18, storyCardWidth, storyCardHeight, 54)
+    ctx.fill()
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.97)'
+    drawRoundedRect(ctx, storyCardX, storyCardY, storyCardWidth, storyCardHeight, 54)
+    ctx.fill()
+
+    ctx.strokeStyle = 'rgba(22, 32, 50, 0.08)'
+    ctx.lineWidth = 2
+    drawRoundedRect(ctx, storyCardX, storyCardY, storyCardWidth, storyCardHeight, 54)
+    ctx.stroke()
+
+    const heroInset = 34
+    const heroX = storyCardX + heroInset
+    const heroY = storyCardY + heroInset
+    const heroWidth = storyCardWidth - heroInset * 2
+    const heroHeight = 250
+
+    const heroGradient = ctx.createLinearGradient(heroX, heroY, heroX + heroWidth, heroY + heroHeight)
+    heroGradient.addColorStop(0, '#18253d')
+    heroGradient.addColorStop(1, '#213454')
+    ctx.fillStyle = heroGradient
+    drawRoundedRect(ctx, heroX, heroY, heroWidth, heroHeight, 40)
+    ctx.fill()
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.64)'
+    ctx.font = '700 18px Inter, system-ui, sans-serif'
+    ctx.fillText(workoutLabel.toUpperCase(), heroX + 30, heroY + 44)
+
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '700 56px Inter, system-ui, sans-serif'
+    const titleLines = getWrappedLines(ctx, workoutTitle, heroWidth - 60, 2)
+    titleLines.forEach((line, index) => {
+      ctx.fillText(line, heroX + 30, heroY + 116 + index * 60)
+    })
+
+    stats.forEach((stat, index) => {
+      const pillWidth = index === 2 ? 194 : 156
+      const pillX = heroX + 30 + [0, 176, 352][index]
+      const pillY = heroY + heroHeight - 86
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
+      drawRoundedRect(ctx, pillX, pillY, pillWidth, 54, 27)
+      ctx.fill()
+
+      ctx.fillStyle = '#f8fafc'
+      ctx.font = '600 22px Inter, system-ui, sans-serif'
+      ctx.fillText(stat, pillX + 24, pillY + 34)
+    })
+
+    const sheetX = heroX
+    const sheetY = heroY + 212
+    const sheetWidth = heroWidth
+    const sheetHeight = storyCardHeight - (sheetY - storyCardY) - 34
+
+    ctx.fillStyle = '#fffdfa'
+    drawRoundedRect(ctx, sheetX, sheetY, sheetWidth, sheetHeight, 36)
+    ctx.fill()
+
+    ctx.strokeStyle = 'rgba(22, 32, 50, 0.05)'
+    ctx.lineWidth = 2
+    drawRoundedRect(ctx, sheetX, sheetY, sheetWidth, sheetHeight, 36)
+    ctx.stroke()
+
+    ctx.fillStyle = '#e8f1ea'
+    drawRoundedRect(ctx, sheetX + 28, sheetY + 30, 170, 48, 24)
+    ctx.fill()
+
+    ctx.fillStyle = '#4f7b60'
+    ctx.font = '700 20px Inter, system-ui, sans-serif'
+    ctx.fillText('workout done', sheetX + 54, sheetY + 61)
+
+    ctx.fillStyle = '#9aa3af'
+    ctx.font = '700 18px Inter, system-ui, sans-serif'
+    ctx.fillText('TODAY\'S LINE-UP', sheetX + 28, sheetY + 124)
+
+    const rowX = sheetX + 24
+    const rowWidth = sheetWidth - 48
+    const rowHeight = 124
+    const rowGap = 18
+    const firstRowY = sheetY + 150
+
+    exerciseList.forEach((exercise, index) => {
+      const top = firstRowY + index * (rowHeight + rowGap)
+
+      ctx.fillStyle = '#f6f1e9'
+      drawRoundedRect(ctx, rowX, top, rowWidth, rowHeight, 28)
+      ctx.fill()
+
+      ctx.fillStyle = '#ffffff'
+      drawRoundedRect(ctx, rowX + 2, top + 2, rowWidth - 4, rowHeight - 4, 26)
+      ctx.fill()
+
+      ctx.fillStyle = '#e7f0e8'
+      ctx.beginPath()
+      ctx.arc(rowX + 38, top + 42, 17, 0, Math.PI * 2)
+      ctx.fill()
+
+      ctx.strokeStyle = '#5f876f'
+      ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.moveTo(rowX + 30, top + 42)
+      ctx.lineTo(rowX + 36, top + 48)
+      ctx.lineTo(rowX + 47, top + 34)
+      ctx.stroke()
+
+      ctx.fillStyle = '#162032'
+      ctx.font = '700 30px Inter, system-ui, sans-serif'
+      const exerciseNameLines = getWrappedLines(ctx, exercise.name, 500, 1)
+      ctx.fillText(exerciseNameLines[0], rowX + 72, top + 50)
+
+      ctx.fillStyle = '#a1a7b3'
+      ctx.font = '700 16px Inter, system-ui, sans-serif'
+      ctx.fillText(`${exercise.muscle.toUpperCase()}  ${exercise.equipment.toUpperCase()}`, rowX + 72, top + 82)
+
+      ctx.fillStyle = '#5e6f92'
+      ctx.font = '700 24px Inter, system-ui, sans-serif'
+      const repsText = `${exercise.sets} x ${exercise.reps}`
+      const repsWidth = ctx.measureText(repsText).width
+      ctx.fillText(repsText, rowX + rowWidth - repsWidth - 32, top + 52)
+    })
+
+    const noteY = firstRowY + exerciseList.length * (rowHeight + rowGap) + 12
+    ctx.fillStyle = '#f2f5fb'
+    drawRoundedRect(ctx, rowX, noteY, rowWidth, 136, 30)
+    ctx.fill()
+
+    ctx.fillStyle = '#162032'
+    ctx.font = '700 24px Inter, system-ui, sans-serif'
+    ctx.fillText('the goal is not the perfect plan.', rowX + 28, noteY + 50)
+
+    ctx.fillStyle = '#667085'
+    ctx.font = '500 22px Inter, system-ui, sans-serif'
+    const noteLines = getWrappedLines(ctx, 'It is keeping the routine alive when time, energy, or equipment changes mid-week.', rowWidth - 56, 2)
+    noteLines.forEach((line, index) => {
+      ctx.fillText(line, rowX + 28, noteY + 88 + index * 28)
+    })
+
+    const stickerY = storyCardY + storyCardHeight + 56
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
+    drawRoundedRect(ctx, 78, stickerY, 430, 112, 32)
+    ctx.fill()
+
+    ctx.strokeStyle = 'rgba(22, 32, 50, 0.08)'
+    ctx.lineWidth = 2
+    drawRoundedRect(ctx, 78, stickerY, 430, 112, 32)
+    ctx.stroke()
+
+    ctx.fillStyle = '#162032'
+    ctx.font = '700 28px Inter, system-ui, sans-serif'
+    ctx.fillText(footerTitle, 114, stickerY + 46)
+
+    ctx.fillStyle = '#6b7280'
+    ctx.font = '500 20px Inter, system-ui, sans-serif'
+    const footerLines = getWrappedLines(ctx, footerMeta, 360, 2)
+    footerLines.forEach((line, index) => {
+      ctx.fillText(line, 114, stickerY + 78 + index * 24)
+    })
+
+    ctx.fillStyle = '#162032'
+    drawRoundedRect(ctx, 544, stickerY + 12, 458, 88, 44)
+    ctx.fill()
+
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '700 24px Inter, system-ui, sans-serif'
+    ctx.fillText('built for real-life consistency', 584, stickerY + 56)
+
+    return new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), 'image/png')
+    })
+  }
+
+  async function handleShareWorkout() {
+    if (!todayWorkout) return
+
+    setIsSharingWorkout(true)
+    setToastMessage('')
+
+    try {
+      const blob = await createWorkoutShareImage()
+      const { shareText } = getWorkoutShareMessaging()
+      const shareUrl = window.location.href
+
+      if (!blob) {
+        if (navigator.share) {
+          await navigator.share({ title: 'AI Fitness Coach', text: shareText, url: shareUrl })
+          setToastMessage('Shared.')
+        }
+        return
+      }
+
+      const file = new File([blob], 'ai-fitness-coach-session.png', { type: 'image/png' })
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: 'AI Fitness Coach',
+          text: shareText,
+          files: [file],
+          url: shareUrl,
+        })
+        setToastMessage('Shared.')
+        return
+      }
+
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = 'ai-fitness-coach-session.png'
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500)
+
+      if (navigator.clipboard && shareUrl && !shareUrl.includes('127.0.0.1') && !shareUrl.includes('localhost')) {
+        await navigator.clipboard.writeText(shareUrl)
+        setToastMessage('Image downloaded and link copied.')
+      } else {
+        setToastMessage('Image downloaded.')
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setToastMessage('Share cancelled.')
+      } else {
+        setToastMessage('Could not open share. Try downloading instead.')
+      }
+    } finally {
+      setIsSharingWorkout(false)
+    }
+  }
+
   function handleWatchDemo(exercise: Exercise) {
     setModalExercise(exercise)
   }
 
   function handleSwapExercise(index: number) {
     if (!todayWorkout) return
+    let swapNote = ''
 
     setWeeklyPlan((prev) =>
       prev.map((item) => {
@@ -940,15 +1993,76 @@ function App() {
         }
 
         exercises[index] = nextExercise
+        swapNote = `Swapped ${current.name} for ${nextExercise.name} to keep the ${current.muscle.toLowerCase()} focus with equipment that is easier to use right now.`
         return { ...item, exercises }
       })
     )
+
+    if (swapNote) {
+      setTodayActionNote(swapNote)
+    }
   }
 
   const renderContent = () => {
     switch (activeTab) {
       case 'setup':
         if (isMobile) {
+          if (setupMode === 'entry') {
+            return (
+              <div className="onboarding-layout">
+                <div className="prototype-intro card">
+                  <div className="prototype-kicker">Adherence-first prototype</div>
+                  <p>{prototypeNarrative}</p>
+                </div>
+
+                <div className="setup-entry-card card">
+                  <h2>How do you want to start?</h2>
+                  <p className="description">Choose a guided setup for your own routine, or preview a realistic sample week.</p>
+
+                  <div className="setup-path-grid">
+                    <button className="setup-path-card" onClick={() => { setSetupMode('build'); setOnboardingStep(1) }}>
+                      <strong>Build my own plan</strong>
+                      <span>Answer a few questions and build a gym plan that starts from where this week actually is.</span>
+                    </button>
+                    <button className="setup-path-card" onClick={() => setSetupMode('scenario')}>
+                      <strong>Quick start</strong>
+                      <span>Preview sample scenarios like busy beginner, hybrid sports week, or a lower-energy week.</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
+          if (setupMode === 'scenario') {
+            return (
+              <div className="onboarding-layout">
+                <div className="prototype-intro card">
+                  <div className="prototype-kicker">Quick start</div>
+                  <p>Pick a sample scenario to preview how the product balances the week before you jump into today.</p>
+                </div>
+
+                <div className="setup-entry-card card">
+                  <h2>Choose a sample week</h2>
+                  <p className="description">These are demo personas designed to show different product behaviors.</p>
+
+                  <div className="scenario-grid">
+                    {DEMO_SCENARIOS.map((scenario) => (
+                      <button
+                        key={scenario.id}
+                        className={`scenario-preview-card ${activeScenarioId === scenario.id ? 'active' : ''}`}
+                        onClick={() => applyDemoScenario(scenario)}
+                      >
+                        <strong>{scenario.label}</strong>
+                        <span>{scenario.summary}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
           return (
             <div className="onboarding-layout">
               <div className="onboarding-progress">
@@ -963,11 +2077,17 @@ function App() {
                 </div>
               </div>
 
+              <div className="prototype-intro card">
+                <div className="prototype-kicker">Adherence-first prototype</div>
+                <p>{prototypeNarrative}</p>
+              </div>
+
               <div className="onboarding-card card">
                 {onboardingStep === 1 && (
                   <div className="onboarding-step">
                     <h2>What's your goal?</h2>
                     <p className="description">Choose the focus that best fits your training intent.</p>
+
                     <div className="option-grid">
                       {[
                         { id: 'build_muscle', label: 'Build Muscle', desc: 'Focus on strength and growth' },
@@ -1071,11 +2191,11 @@ function App() {
                 {onboardingStep === 4 && (
                   <div className="onboarding-step">
                     <h2>Daily life</h2>
-                    <p className="description">Other regular activities to balance your plan.</p>
+                    <p className="description">Other regular activities your gym week should fit around.</p>
 
                     <div className="chip-section">
                       <div className="chip-row">
-                        {['Swim', 'Tennis', 'Running'].map((item) => (
+                        {REGULAR_ACTIVITY_OPTIONS.map((item) => (
                           <button
                             key={item}
                             type="button"
@@ -1089,35 +2209,105 @@ function App() {
                     </div>
 
                     <div className="summary-card" style={{ marginTop: '32px', background: 'var(--bg-soft)', padding: '20px', borderRadius: '12px' }}>
-                      <h4 style={{ margin: '0 0 12px', fontSize: '14px' }}>Your selections</h4>
-                      <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                      <h4 style={{ margin: '0 0 10px', fontSize: '14px' }}>What the plan will optimize for</h4>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.55' }}>
                         {profile.weeklyDays} days/week • {profile.duration} min • {profile.location}
                       </div>
+                      <p style={{ margin: '10px 0 0', fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.55' }}>
+                        {activityNotes[0]}
+                      </p>
                     </div>
                   </div>
                 )}
 
                 <div className="onboarding-actions" style={{ marginTop: '40px', display: 'flex', gap: '12px' }}>
-                  {onboardingStep > 1 && (
+                  {!isMobile && onboardingStep > 1 && (
                     <button className="secondary" style={{ flex: 1 }} onClick={() => setOnboardingStep(prev => prev - 1)}>Back</button>
                   )}
                   {onboardingStep < 4 ? (
-                    <button className="primary-cta" style={{ flex: 2 }} onClick={() => setOnboardingStep(prev => prev + 1)}>Continue</button>
+                    <button className="primary-cta" style={{ flex: isMobile ? 1 : 2 }} onClick={() => setOnboardingStep(prev => prev + 1)}>Continue</button>
                   ) : (
-                    <button className="primary-cta" style={{ flex: 2 }} onClick={handleGenerateWeek}>Build My Plan</button>
+                    <button className="primary-cta" style={{ flex: isMobile ? 1 : 2 }} onClick={handleGenerateWeek}>Build My Plan</button>
                   )}
                 </div>
               </div>
             </div>
           )
         }
+
+        if (setupMode === 'entry') {
+          return (
+            <div className="tab-layout">
+              <section className="card main-card">
+                <h2 style={{ fontSize: '24px', letterSpacing: '-0.03em' }}>How do you want to start?</h2>
+                <p className="description">Build your own plan, or jump into a realistic sample scenario first.</p>
+
+                <div className="setup-path-grid desktop-setup-path-grid">
+                  <button className="setup-path-card" onClick={() => { setSetupMode('build'); setOnboardingStep(1) }}>
+                    <strong>Build my own plan</strong>
+                    <span>Answer a few questions and create a plan that adapts to this week’s remaining time, energy, and equipment.</span>
+                  </button>
+                  <button className="setup-path-card" onClick={() => setSetupMode('scenario')}>
+                    <strong>Quick start</strong>
+                    <span>Preview three sample weeks that show how the product behaves for different personas and constraints.</span>
+                  </button>
+                </div>
+              </section>
+
+              <section className="side-card">
+                <h3>Why this prototype exists</h3>
+                <div className="side-card-content">
+                  <p className="workout-meta" style={{ margin: 0, lineHeight: '1.65' }}>
+                    {prototypeNarrative}
+                  </p>
+                </div>
+              </section>
+            </div>
+          )
+        }
+
+        if (setupMode === 'scenario') {
+          return (
+            <div className="tab-layout">
+              <section className="card main-card">
+                <button className="ghost setup-back-link" onClick={() => setSetupMode('entry')}>Back</button>
+                <h2 style={{ fontSize: '24px', letterSpacing: '-0.03em' }}>Choose a sample week</h2>
+                <p className="description">Use a sample scenario to preview the product before configuring your own plan.</p>
+
+                <div className="scenario-grid desktop-scenario-grid">
+                  {DEMO_SCENARIOS.map((scenario) => (
+                    <button
+                      key={scenario.id}
+                      className={`scenario-preview-card ${activeScenarioId === scenario.id ? 'active' : ''}`}
+                      onClick={() => applyDemoScenario(scenario)}
+                    >
+                      <strong>{scenario.label}</strong>
+                      <span>{scenario.summary}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="side-card">
+                <h3>What Quick Start shows</h3>
+                <div className="side-card-content">
+                  <p className="workout-meta" style={{ margin: 0, lineHeight: '1.65' }}>
+                    Sample scenarios are there to show how the product behaves across beginner friction, hybrid training weeks, and lower-energy recovery periods.
+                  </p>
+                </div>
+              </section>
+            </div>
+          )
+        }
+
         return (
           <div className="tab-layout">
             <section className="card main-card">
               <h2 style={{ fontSize: '24px', letterSpacing: '-0.03em' }}>Build your plan</h2>
               <p className="description">
-                Customize your training experience based on your goals and schedule.
+                Build a gym plan that stays doable when time, energy, or equipment changes.
               </p>
+              <button className="ghost setup-back-link" onClick={() => setSetupMode('entry')}>Back</button>
 
               <div className="form-section-title">Goals</div>
               <div className="form-grid">
@@ -1232,7 +2422,7 @@ function App() {
               <div className="chip-section">
                 <div className="form-section-title">Regular activities</div>
                 <div className="chip-row">
-                  {['Swim', 'Tennis', 'Running'].map((item) => (
+                  {REGULAR_ACTIVITY_OPTIONS.map((item) => (
                     <button
                       key={item}
                       type="button"
@@ -1253,13 +2443,22 @@ function App() {
             </section>
 
             <section className="side-card">
-              <h3>Live Summary</h3>
+              <h3>Why this prototype exists</h3>
               <div className="side-card-content">
+                <p className="workout-meta" style={{ margin: '0 0 18px', lineHeight: '1.65' }}>
+                  {prototypeNarrative}
+                </p>
                 <div className="form-group" style={{ gap: '12px' }}>
                   <div className="workout-meta">Goal: <strong style={{ color: 'var(--primary)' }}>{profile.goal.replace('_', ' ')}</strong></div>
                   <div className="workout-meta">Stage: <strong style={{ color: 'var(--primary)' }}>{profile.experience.replace('_', ' ')}</strong></div>
                   <div className="workout-meta">Volume: <strong style={{ color: 'var(--primary)' }}>{profile.weeklyDays} days / week</strong></div>
-                  <div className="workout-meta">Location: <strong style={{ color: 'var(--primary)' }}>{profile.location}</strong></div>
+                  <div className="workout-meta">Other load: <strong style={{ color: 'var(--primary)' }}>{profile.activities.join(', ') || 'None'}</strong></div>
+                </div>
+                <div style={{ marginTop: '18px', paddingTop: '18px', borderTop: '1px solid var(--border)' }}>
+                  <h4 style={{ margin: '0 0 8px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-light)' }}>Design principle</h4>
+                  <p className="workout-meta" style={{ margin: 0, lineHeight: '1.6' }}>
+                    Reduce friction before asking for more discipline.
+                  </p>
                 </div>
               </div>
             </section>
@@ -1271,27 +2470,45 @@ function App() {
           return (
             <div className="plan-mobile-layout">
               <section className="insight-hero card">
-                <h3>Weekly Focus</h3>
+                <h3>{planMessaging.title}</h3>
                 <p className="workout-meta" style={{ margin: 0, lineHeight: '1.6', fontSize: '15px' }}>
-                  {weeklyPlan.some(item => item.title.includes('(Light)')) 
-                    ? "Recovery week focused on reducing fatigue while maintaining movement quality."
-                    : weeklyPlan.some(item => item.duration > profile.duration)
-                      ? "Progression week! We've increased volume to match your consistency."
-                      : `Target: ${profile.goal.replace('_', ' ')}. Consistency is your primary metric this week.`}
+                  {planMessaging.body}
                 </p>
               </section>
 
+              <section className="plan-why card">
+                <div className="reason-kicker">Why this week looks like this</div>
+                <p>{planMessaging.why}</p>
+              </section>
+
+              {activeScenario && (
+                <section className="plan-scenario card">
+                  <div className="reason-kicker">Sample scenario</div>
+                  <h3>{activeScenario.label}</h3>
+                  <p>{activeScenario.summary}</p>
+                  <button className="secondary" style={{ marginTop: '14px', width: '100%' }} onClick={() => {
+                    setSelectedDay(null)
+                    setAdjustment('none')
+                    setActiveTab('today')
+                  }}>
+                    See today’s session
+                  </button>
+                </section>
+              )}
+
               <div className="schedule-agenda">
                 {weeklyPlan.map((item) => {
-                  const isToday = !selectedDay && item.day === DAYS[new Date().getDay() - 1]
-                  const status = item.completed ? 'Done' : item.intensity === 'rest' ? 'Rest' : isToday ? 'Today' : item.intensity === 'light' ? 'Light' : ''
+                  const isToday = !selectedDay && item.day === getTodayDayLabel()
+                  const isPast = item.title === 'Earlier this week'
+                  const isInteractive = item.intensity !== 'rest' && !item.completed && !isPast
+                  const status = item.completed ? 'Done' : isPast ? 'Past' : item.intensity === 'rest' ? 'Rest' : isToday ? 'Today' : item.intensity === 'light' ? 'Light' : ''
 
                   return (
                     <div
                       key={item.day}
-                      className={`agenda-item ${item.intensity !== 'rest' ? 'clickable' : 'rest'} ${item.completed ? 'completed' : ''} ${isToday ? 'active' : ''}`}
+                      className={`agenda-item ${isInteractive ? 'clickable' : 'rest'} ${item.completed ? 'completed' : ''} ${isToday ? 'active' : ''}`}
                       onClick={() => {
-                        if (item.intensity !== 'rest') {
+                        if (isInteractive) {
                           setSelectedDay(item.day)
                           setActiveTab('today')
                         }
@@ -1321,19 +2538,37 @@ function App() {
           <div className="tab-layout">
             <section className="card main-card">
               <h2 style={{ fontSize: '24px', letterSpacing: '-0.03em' }}>Your weekly plan</h2>
-              <p className="description" style={{ marginBottom: '32px' }}>{weekSummary}</p>
+              <p className="description" style={{ marginBottom: '10px' }}>{weekSummary}</p>
+              <p className="workout-meta" style={{ margin: '0 0 32px', lineHeight: '1.65' }}>{planMessaging.body}</p>
+
+              {activeScenario && (
+                <div style={{ marginBottom: '24px', padding: '22px 24px', borderRadius: '16px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Sample scenario</div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--primary)', marginBottom: '6px' }}>{activeScenario.label}</div>
+                  <p style={{ margin: '0 0 14px', color: 'var(--text-muted)', lineHeight: '1.6' }}>{activeScenario.summary}</p>
+                  <button className="secondary" onClick={() => {
+                    setSelectedDay(null)
+                    setAdjustment('none')
+                    setActiveTab('today')
+                  }}>
+                    See today’s session
+                  </button>
+                </div>
+              )}
 
               <div className="schedule-list">
                 {weeklyPlan.map((item) => {
-                  const isToday = !selectedDay && item.day === DAYS[new Date().getDay() - 1]
-                  const status = item.completed ? 'Done' : item.intensity === 'rest' ? 'Rest' : isToday ? 'Today' : item.intensity === 'light' ? 'Light' : ''
+                  const isToday = !selectedDay && item.day === getTodayDayLabel()
+                  const isPast = item.title === 'Earlier this week'
+                  const isInteractive = item.intensity !== 'rest' && !item.completed && !isPast
+                  const status = item.completed ? 'Done' : isPast ? 'Past' : item.intensity === 'rest' ? 'Rest' : isToday ? 'Today' : item.intensity === 'light' ? 'Light' : ''
 
                   return (
                     <div
                       key={item.day}
-                      className={`schedule-item ${item.intensity !== 'rest' ? 'clickable' : 'rest'} ${item.completed ? 'completed' : ''} ${isToday ? 'is-today' : ''}`}
+                      className={`schedule-item ${isInteractive ? 'clickable' : 'rest'} ${item.completed ? 'completed' : ''} ${isToday ? 'is-today' : ''}`}
                       onClick={() => {
-                        if (item.intensity !== 'rest') {
+                        if (isInteractive) {
                           setSelectedDay(item.day)
                           setActiveTab('today')
                         }
@@ -1366,12 +2601,14 @@ function App() {
               <h3>Coach Insights</h3>
               <div className="side-card-content">
                 <p className="workout-meta" style={{ margin: 0, lineHeight: '1.6' }}>
-                  {weeklyPlan.some(item => item.title.includes('(Light)')) 
-                    ? "Next week's plan has been adjusted for recovery based on your recent fatigue levels."
-                    : weeklyPlan.some(item => item.duration > profile.duration)
-                      ? "Your plan has been progressed with increased volume to match your high consistency."
-                      : `This plan is balanced for your ${profile.goal.replace('_', ' ')} goal. Focus on consistent execution.`}
+                  {planMessaging.why}
                 </p>
+                <div style={{ marginTop: '18px', paddingTop: '18px', borderTop: '1px solid var(--border)' }}>
+                  <h4 style={{ margin: '0 0 8px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-light)' }}>Activity-aware notes</h4>
+                  <p className="workout-meta" style={{ margin: 0, lineHeight: '1.6' }}>
+                    {activityNotes.slice(0, 2).join(' ')}
+                  </p>
+                </div>
               </div>
             </section>
           </div>
@@ -1388,6 +2625,8 @@ function App() {
             </div>
           )
         }
+        const isPastSession = todayWorkout.title === 'Earlier this week'
+        const isReadOnlySession = todayWorkout.completed || isPastSession || todayWorkout.intensity === 'rest'
         if (isMobile) {
           return (
             <div className="today-mobile-layout">
@@ -1395,85 +2634,109 @@ function App() {
                 <div className="session-label">{todayWorkout.day} SESSION</div>
                 <h1 className="workout-name">{todayWorkout.title}</h1>
                 <div className="workout-meta-row">
-                  <span>⏱️ {todayWorkout.duration}m</span>
-                  <span>⚡ {todayWorkout.intensity}</span>
-                  <span>💪 {todayWorkout.exercises?.length || 0} exercises</span>
+                  <span className="today-meta-pill">{todayWorkout.duration} min</span>
+                  <span className="today-meta-pill">
+                    {todayWorkout.intensity.charAt(0).toUpperCase() + todayWorkout.intensity.slice(1)}
+                  </span>
+                  <span className="today-meta-pill">{todayWorkout.exercises?.length || 0} exercises</span>
                 </div>
               </div>
 
               <div className="mobile-actions-container">
-                <button
-                  className={`primary-cta large ${todayWorkout.completed ? 'completed-state' : ''}`}
-                  onClick={handleMarkDone}
-                  disabled={todayWorkout.completed}
-                  style={todayWorkout.completed ? {
-                    background: 'var(--success)',
-                    color: 'white',
-                    boxShadow: '0 8px 16px -6px rgba(16, 185, 129, 0.3)',
-                    border: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px'
-                  } : {}}
-                >
-                  {todayWorkout.completed ? (
-                    <>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                      Completed for today
-                    </>
-                  ) : 'Complete workout'}
-                </button>
-
-                <div className="mobile-adjust-section card">
-                  <h3>Adjust today's session</h3>
-                  <div className="chip-row">
-                    {[
-                      { id: 'short', label: 'Short on time' },
-                      { id: 'tired', label: 'Low energy' },
-                      { id: 'machine_taken', label: 'No machine' }
-                    ].map((adj) => (
-                      <button
-                        key={adj.id}
-                        className={adjustment === adj.id ? 'chip active-chip' : 'chip'}
-                        onClick={() => setAdjustment(adjustment === adj.id ? 'none' : adj.id as any)}
-                      >
-                        {adj.label}
-                      </button>
-                    ))}
-                  </div>
-                  {adjustment !== 'none' && (
-                    <div className="mobile-adjusted-preview">
-                      <div className="preview-header">
-                        <span>New line-up</span>
-                        <button className="ghost" onClick={() => setAdjustment('none')}>Cancel</button>
-                      </div>
-                      <div className="preview-list" style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {adjustedExercises.map((ex, i) => (
-                          <div key={i} style={{ fontSize: '12px', display: 'flex', justifyContent: 'space-between', opacity: 0.8 }}>
-                            <span>{ex.name}</span>
-                            <span>{ex.sets}×{ex.reps}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <button className="primary-cta small" onClick={() => {
-                        setWeeklyPlan((prev) => prev.map((item) => item.day === todayWorkout.day ? { ...item, exercises: adjustedExercises } : item))
-                        setAdjustment('none')
-                      }}>Apply adjustment</button>
-                    </div>
+                <div className="today-reasoning card">
+                  <div className="reason-kicker">Why today looks like this</div>
+                  <h3>{todayMessaging.title}</h3>
+                  <p>{todayMessaging.body}</p>
+                  {(todayActionNote || appliedWorkoutMessaging) && (
+                    <div className="today-inline-note">{todayActionNote || appliedWorkoutMessaging}</div>
                   )}
                 </div>
+
+                {todayWorkout.completed ? (
+                  <div className="completion-panel session-state-panel card">
+                    <div className="session-state-title">
+                      <div className="completion-check">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      </div>
+                      <strong>Workout completed</strong>
+                    </div>
+                    <p className="session-state-body">You kept the session alive today. Share the card if you want to show the product in action.</p>
+                    <button className="secondary completion-share-btn" onClick={handleShareWorkout} disabled={isSharingWorkout}>
+                      {isSharingWorkout ? 'Preparing share card...' : 'Share today’s result'}
+                    </button>
+                  </div>
+                ) : isPastSession ? (
+                  <div className="readonly-session-panel session-state-panel card">
+                    <strong className="session-state-heading">Earlier this week</strong>
+                    <p className="session-state-body">This session is shown as part of the weekly timeline, but it is no longer editable or actionable.</p>
+                  </div>
+                ) : (
+                  <button
+                    className="primary-cta large"
+                    onClick={handleMarkDone}
+                  >
+                    Complete workout
+                  </button>
+                )}
+
+                {!isReadOnlySession && (
+                  <div className="mobile-adjust-section card">
+                    <h3>Adjust today's session</h3>
+                    <div className="chip-row">
+                      {[
+                        { id: 'short', label: 'Only 20 min' },
+                        { id: 'tired', label: 'Low energy' },
+                        { id: 'machine_taken', label: 'Machine occupied' }
+                      ].map((adj) => (
+                        <button
+                          key={adj.id}
+                          className={adjustment === adj.id ? 'chip active-chip' : 'chip'}
+                          onClick={() => setAdjustment(adjustment === adj.id ? 'none' : adj.id as any)}
+                        >
+                          {adj.label}
+                        </button>
+                      ))}
+                    </div>
+                    {adjustment !== 'none' && (
+                      <div className="mobile-adjusted-preview">
+                        <div className="preview-header">
+                          <span>New line-up</span>
+                          <button className="ghost" onClick={() => setAdjustment('none')}>Cancel</button>
+                        </div>
+                        {adjustmentMessaging && (
+                          <div className="adjustment-why">
+                            <strong>{adjustmentMessaging.title}</strong>
+                            <p>{adjustmentMessaging.body}</p>
+                          </div>
+                        )}
+                        <div className="preview-list">
+                          {adjustedExercises.map((ex, i) => (
+                            <div key={i} className="preview-line-item">
+                              <span>{ex.name}</span>
+                              <span>{ex.sets}×{ex.reps}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <button className="primary-cta small" onClick={() => {
+                          setWeeklyPlan((prev) => prev.map((item) => item.day === todayWorkout.day ? { ...item, exercises: adjustedExercises } : item))
+                          setTodayActionNote(adjustmentMessaging?.body || '')
+                          setAdjustment('none')
+                        }}>Apply adjustment</button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="exercise-feed">
                 {(() => {
                   const exercises = todayWorkout.exercises && todayWorkout.exercises.length > 0
                     ? todayWorkout.exercises
-                    : getWorkoutExercises(todayWorkout.title.replace(' (Light)', ''))
+                    : adaptExercisesToProfile(getWorkoutExercises(todayWorkout.title.replace(' (Light)', '')), profile)
 
                   return exercises.map((exercise: Exercise, index: number) => {
                     return (
-                      <div key={`${exercise.name}-${index}`} className="mobile-exercise-card card">
+                      <div key={`${exercise.name}-${index}`} className={`mobile-exercise-card card ${isReadOnlySession ? 'readonly' : ''}`}>
                         <div className="ex-header">
                           <div className="ex-info">
                             <h3>{exercise.name}</h3>
@@ -1486,14 +2749,16 @@ function App() {
                             {exercise.sets}×{exercise.reps}
                           </div>
                         </div>
-                        <div className="ex-actions" style={{ display: 'flex', gap: '12px', paddingTop: '16px', borderTop: '1px solid var(--border)', marginTop: '4px' }}>
-                          <button className="ghost" style={{ flex: 1, fontSize: '13px', padding: '8px 0', border: 'none', background: 'transparent', color: 'var(--text-muted)' }} onClick={() => handleWatchDemo(exercise)}>
-                            Watch demo
-                          </button>
-                          <button className="secondary" style={{ flex: 1, fontSize: '13px', padding: '8px', background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--primary)' }} onClick={() => handleSwapExercise(index)}>
-                            Swap
-                          </button>
-                        </div>
+                        {!isReadOnlySession && (
+                          <div className="ex-actions">
+                            <button className="ghost ex-text-action" onClick={() => handleWatchDemo(exercise)}>
+                              Watch demo
+                            </button>
+                            <button className="secondary ex-secondary-action" onClick={() => handleSwapExercise(index)}>
+                              Swap
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )
                   })
@@ -1520,7 +2785,7 @@ function App() {
                       <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>💪 {todayWorkout.exercises?.length || 0} exercises</span>
                     </div>
                   </div>
-                  {JSON.stringify(todayWorkout.exercises) !== JSON.stringify(todayWorkout.originalExercises) && (
+                  {!isReadOnlySession && JSON.stringify(todayWorkout.exercises) !== JSON.stringify(todayWorkout.originalExercises) && (
                     <button
                       className="ghost"
                       style={{ fontSize: '13px', padding: '0' }}
@@ -1540,20 +2805,53 @@ function App() {
                 </div>
 
                 <div className="today-primary-actions" style={{ marginBottom: '48px' }}>
-                  <button
-                    className="primary-cta"
-                    onClick={handleMarkDone}
-                    disabled={todayWorkout.completed}
-                    style={{
-                      height: '60px',
-                      fontSize: '18px',
-                      background: todayWorkout.completed ? 'var(--success)' : 'var(--primary)',
-                      boxShadow: todayWorkout.completed ? 'none' : '0 10px 15px -3px rgba(15, 23, 42, 0.15)',
-                    }}
-                  >
-                    {todayWorkout.completed ? '✓ Workout Completed' : 'Complete workout'}
-                  </button>
+                  {todayWorkout.completed ? (
+                    <div className="completion-panel session-state-panel card" style={{ padding: '22px' }}>
+                      <div className="completion-panel-header">
+                        <div className="completion-check">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </div>
+                        <div className="completion-copy">
+                          <strong>Workout completed</strong>
+                          <p>This session is now locked. You can share the result, but not edit the workout.</p>
+                        </div>
+                      </div>
+                      <button className="secondary completion-share-btn" style={{ marginTop: '16px' }} onClick={handleShareWorkout} disabled={isSharingWorkout}>
+                        {isSharingWorkout ? 'Preparing share card...' : 'Share today’s result'}
+                      </button>
+                    </div>
+                  ) : isPastSession ? (
+                    <div className="readonly-session-panel session-state-panel card" style={{ padding: '22px' }}>
+                      <strong>Earlier this week</strong>
+                      <p>This session is shown as a timeline reference only. It is no longer editable from Today.</p>
+                    </div>
+                  ) : (
+                    <button
+                      className="primary-cta"
+                      onClick={handleMarkDone}
+                      style={{
+                        height: '60px',
+                        fontSize: '18px',
+                        background: 'var(--primary)',
+                        boxShadow: '0 10px 15px -3px rgba(15, 23, 42, 0.15)',
+                      }}
+                    >
+                      Complete workout
+                    </button>
+                  )}
 
+                  <div style={{ marginTop: '20px', padding: '20px 22px', borderRadius: '16px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-light)', marginBottom: '8px' }}>Why today looks like this</div>
+                    <h4 style={{ margin: '0 0 6px', fontSize: '16px' }}>{todayMessaging.title}</h4>
+                    <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6' }}>{todayMessaging.body}</p>
+                    {(todayActionNote || appliedWorkoutMessaging) && (
+                      <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border)', fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.55' }}>
+                        {todayActionNote || appliedWorkoutMessaging}
+                      </div>
+                    )}
+                  </div>
+
+                  {!isReadOnlySession && (
                   <div className="adjustment-section" style={{ marginTop: '24px' }}>
                     <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                       <h4 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: '700' }}>Adjust today's workout</h4>
@@ -1561,9 +2859,9 @@ function App() {
                     </div>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                       {[
-                        { id: 'short', label: 'Short on time' },
+                        { id: 'short', label: 'Only 20 min' },
                         { id: 'tired', label: 'Low energy' },
-                        { id: 'machine_taken', label: 'No machine' }
+                        { id: 'machine_taken', label: 'Machine occupied' }
                       ].map((adj) => (
                         <button
                           key={adj.id}
@@ -1582,6 +2880,12 @@ function App() {
                           <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: 'var(--accent)' }}>Recommended adjustment</h4>
                           <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--accent)' }}>{adjustment.replace('_', ' ')}</span>
                         </div>
+                        {adjustmentMessaging && (
+                          <div style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid rgba(59, 130, 246, 0.14)' }}>
+                            <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--primary)', marginBottom: '4px' }}>{adjustmentMessaging.title}</div>
+                            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.55' }}>{adjustmentMessaging.body}</p>
+                          </div>
+                        )}
                         <div className="exercise-list" style={{ gap: '8px' }}>
                           {adjustedExercises.map((exercise, index) => (
                             <div key={`adj-${exercise.name}-${index}`} style={{ fontSize: '14px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between' }}>
@@ -1601,6 +2905,7 @@ function App() {
                                   : item
                               )
                             )
+                            setTodayActionNote(adjustmentMessaging?.body || '')
                             setAdjustment('none')
                           }}
                         >
@@ -1621,19 +2926,20 @@ function App() {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
 
                 <div className="exercise-list" style={{ gap: '20px' }}>
                   {(() => {
                     const exercises = todayWorkout.exercises && todayWorkout.exercises.length > 0
                       ? todayWorkout.exercises
-                      : getWorkoutExercises(todayWorkout.title.replace(' (Light)', ''))
+                      : adaptExercisesToProfile(getWorkoutExercises(todayWorkout.title.replace(' (Light)', '')), profile)
 
                     return exercises.map((exercise: Exercise, index: number) => {
                       const hasCuratedAlt = exercise.alternatives && exercise.alternatives.length > 0 && EXERCISE_LIBRARY[exercise.alternatives[0]]
                       
                       return (
-                        <div key={`${exercise.name}-${index}`} className="exercise-card" style={{ padding: '24px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', transition: 'all 0.2s' }}>
+                        <div key={`${exercise.name}-${index}`} className={`exercise-card ${isReadOnlySession ? 'readonly' : ''}`} style={{ padding: '24px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', transition: 'all 0.2s' }}>
                           <div className="exercise-header" style={{ marginBottom: '16px' }}>
                             <div className="exercise-info">
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
@@ -1649,18 +2955,20 @@ function App() {
                             </div>
                           </div>
 
-                          <div className="exercise-actions" style={{ borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
-                            <button className="ghost" style={{ padding: '0', color: 'var(--text-muted)', fontSize: '13px', fontWeight: '600' }} onClick={() => handleWatchDemo(exercise)}>Watch demo</button>
-                            {exercise.alternatives && exercise.alternatives.length > 0 && (
-                              <button 
-                                className="secondary" 
-                                style={{ marginLeft: 'auto', fontSize: '12px', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)', color: 'var(--text-muted)' }} 
-                                onClick={() => handleSwapExercise(index)}
-                              >
-                                {hasCuratedAlt ? `Swap for ${exercise.alternatives[0]}` : 'Swap exercise'}
-                              </button>
-                            )}
-                          </div>
+                          {!isReadOnlySession && (
+                            <div className="exercise-actions" style={{ borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+                              <button className="ghost" style={{ padding: '0', color: 'var(--text-muted)', fontSize: '13px', fontWeight: '600' }} onClick={() => handleWatchDemo(exercise)}>Watch demo</button>
+                              {exercise.alternatives && exercise.alternatives.length > 0 && (
+                                <button 
+                                  className="secondary" 
+                                  style={{ marginLeft: 'auto', fontSize: '12px', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)', color: 'var(--text-muted)' }} 
+                                  onClick={() => handleSwapExercise(index)}
+                                >
+                                  {hasCuratedAlt ? `Swap for ${exercise.alternatives[0]}` : 'Swap exercise'}
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )
                     })
@@ -1673,11 +2981,11 @@ function App() {
               <h3>Guidance</h3>
               <div className="side-card-content" style={{ padding: '24px' }}>
                 <div className="workout-meta" style={{ marginBottom: '16px', lineHeight: '1.6' }}>
-                  Today's session is focused on <strong>{todayWorkout.title}</strong> with <strong>{todayWorkout.intensity}</strong> effort.
+                  {todayMessaging.body}
                 </div>
                 <div style={{ padding: '16px', background: 'var(--bg)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--accent)' }}>
-                  <p className="workout-meta" style={{ margin: 0, fontSize: '13px', fontStyle: 'italic', color: 'var(--text-main)' }}>
-                    "Quality over quantity. Focus on the mind-muscle connection for every single rep."
+                  <p className="workout-meta" style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)' }}>
+                    {todayActionNote || appliedWorkoutMessaging || 'Use Watch demo when confidence is low, and adjust early instead of skipping late.'}
                   </p>
                 </div>
               </div>
@@ -1691,13 +2999,14 @@ function App() {
             <div className="reflect-mobile-layout">
               <section className="reflect-hero card">
                 <h2>Weekly Reflection</h2>
-                <p className="description">Quickly review your week to optimize what's next.</p>
+                <p className="description">Review what actually happened this week so next week stays more finishable.</p>
               </section>
 
               <div className="reflect-form card">
-                <div className="form-group">
-                  <label>Completion: {checkIn.completionRate}%</label>
+                <div className="form-group mobile-completion-group">
+                  <label className="mobile-completion-label">Completion: {checkIn.completionRate}%</label>
                   <input
+                    className="mobile-completion-slider"
                     type="range"
                     min="0"
                     max="100"
@@ -1708,19 +3017,19 @@ function App() {
                 </div>
 
                 <div className="mobile-select-grid">
-                  <div className="form-group">
+                  <div className="form-group mobile-reflect-field">
                     <label>Energy</label>
                     <select value={checkIn.energy} onChange={(e) => setCheckIn(prev => ({ ...prev, energy: Number(e.target.value) }))}>
                       {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
                   </div>
-                  <div className="form-group">
+                  <div className="form-group mobile-reflect-field">
                     <label>Sleep</label>
                     <select value={checkIn.sleepQuality} onChange={(e) => setCheckIn(prev => ({ ...prev, sleepQuality: Number(e.target.value) }))}>
                       {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
                   </div>
-                  <div className="form-group">
+                  <div className="form-group mobile-reflect-field">
                     <label>Fatigue</label>
                     <select value={checkIn.fatigue} onChange={(e) => setCheckIn(prev => ({ ...prev, fatigue: Number(e.target.value) }))}>
                       {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
@@ -1737,16 +3046,29 @@ function App() {
 
                 <div className="recommendation-preview" style={{ marginTop: '24px', padding: '20px', background: 'var(--bg-soft)', borderRadius: '12px' }}>
                   <h4 style={{ margin: '0 0 8px', fontSize: '14px', color: 'var(--accent)' }}>Coach recommendation</h4>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--primary)', marginBottom: '6px' }}>{reflectMessaging.title}</div>
                   <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.5' }}>
-                    {checkIn.fatigue >= 4 
-                      ? "Your fatigue levels are high. I recommend a deload week focused on recovery and light movement to prevent burnout." 
-                      : checkIn.completionRate >= 80 
-                        ? "Excellent consistency this week. You're ready for a slight increase in volume to keep your progress moving forward."
-                        : "You're building a solid foundation. Let's maintain this volume for another week to lock in your consistency."}
+                    {reflectMessaging.recommendation}
                   </p>
+                  <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Why next week changes</div>
+                    <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.55', color: 'var(--text-muted)' }}>
+                      {reflectMessaging.reason}
+                    </p>
+                  </div>
+                  {checkIn.note && (
+                    <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-main)' }}>
+                      You flagged: {checkIn.note}
+                    </div>
+                  )}
                 </div>
 
-                <button className="primary-cta large" style={{ marginTop: '32px' }} onClick={handleGenerateNextWeek}>
+                <div className="plan-why card" style={{ marginTop: '14px' }}>
+                  <div className="reason-kicker">Product view</div>
+                  <p>We are not trying to rescue the week with more discipline. We are adjusting the next one so it is easier to repeat.</p>
+                </div>
+
+                <button className="primary-cta large" style={{ marginTop: '18px' }} onClick={handleGenerateNextWeek}>
                   Update next week’s plan
                 </button>
               </div>
@@ -1757,7 +3079,7 @@ function App() {
           <div className="tab-layout">
             <section className="card main-card">
               <h2 style={{ fontSize: '24px', letterSpacing: '-0.03em' }}>Weekly Reflection</h2>
-              <p className="description">Reflect on your past week to optimize your next training block.</p>
+              <p className="description">Reflect on what actually happened this week so the next plan stays more doable.</p>
 
               <div className="form-grid" style={{ marginTop: '24px', rowGap: '32px' }}>
                 <div className="form-group">
@@ -1864,38 +3186,15 @@ function App() {
             <section className="side-card">
               <h3>Coach recommendation</h3>
               <div className="side-card-content" style={{ padding: '24px' }}>
-                {checkIn.fatigue >= 4 ? (
-                  <div style={{ color: '#b91c1c' }}>
-                    <h4 style={{ margin: '0 0 8px', fontSize: '15px' }}>Recovery Priority</h4>
-                    <p style={{ fontSize: '14px', margin: 0, lineHeight: '1.6' }}>
-                      Based on your high fatigue, we'll shift next week to a <strong>Deload Phase</strong> with reduced intensity to help you recover.
-                    </p>
-                  </div>
-                ) : checkIn.completionRate >= 80 ? (
-                  <div style={{ color: '#15803d' }}>
-                    <h4 style={{ margin: '0 0 8px', fontSize: '15px' }}>Progressive Overload</h4>
-                    <p style={{ fontSize: '14px', margin: 0, lineHeight: '1.6' }}>
-                      Excellent consistency! We'll maintain your current momentum and slightly increase volume to keep you progressing.
-                    </p>
-                  </div>
-                ) : (
-                  <div style={{ color: 'var(--text-main)' }}>
-                    <h4 style={{ margin: '0 0 8px', fontSize: '15px' }}>Build Momentum</h4>
-                    <p style={{ fontSize: '14px', margin: 0, lineHeight: '1.6' }}>
-                      We'll keep the plan steady for next week to help you lock in a consistent routine before we increase the challenge.
-                    </p>
-                  </div>
-                )}
+                <h4 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--primary)' }}>{reflectMessaging.title}</h4>
+                <p style={{ fontSize: '14px', margin: 0, lineHeight: '1.6', color: 'var(--text-main)' }}>
+                  {reflectMessaging.recommendation}
+                </p>
 
                 <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
                   <h4 style={{ margin: '0 0 8px', fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-light)' }}>Why your next week changed</h4>
                   <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0 }}>
-                    {checkIn.fatigue >= 4 
-                      ? "Lower completion + low energy + high fatigue led to a lighter week."
-                      : checkIn.completionRate >= 80 
-                        ? "High completion + good recovery led to a slight increase in volume."
-                        : "Steady completion and moderate fatigue suggest maintaining current volume."
-                    }
+                    {reflectMessaging.reason}
                   </p>
                 </div>
               </div>
@@ -1917,27 +3216,24 @@ function App() {
                   <span className="lab">Streak</span>
                 </div>
                 <div className="metric-item">
-                  <span className="val">{(() => {
-                    const activeWorkouts = weeklyPlan.filter(item => item.intensity !== 'rest')
-                    if (activeWorkouts.length === 0) return 0
-                    const rate = Math.round((weeklyPlan.filter(item => item.completed).length / activeWorkouts.length) * 100)
-                    return `${rate}%`
-                  })()}</span>
-                  <span className="lab">Weekly Goal</span>
+                  <span className="val">{progressMessaging.highlightValue}</span>
+                  <span className="lab">{progressMessaging.highlightLabel}</span>
                 </div>
               </div>
 
               <section className="mobile-insight card">
-                <h3>Weekly insight</h3>
+                <h3>This week’s story</h3>
                 <p style={{ margin: 0, fontSize: '15px', lineHeight: '1.6' }}>
-                  {progress?.totalCompleted > 5 
-                    ? "Your consistency is building real momentum. Focus on maintaining your current streak to solidify these habits."
-                    : "Every session is a step toward your goal. Focus on showing up consistently this week to build your foundation."}
+                  {progressMessaging.headline}
                 </p>
                 <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: '4px' }}>Why it matters</div>
+                  <p style={{ margin: '0 0 12px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                    {progressMessaging.body}
+                  </p>
                   <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: '4px' }}>Next focus</div>
                   <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
-                    {profile.goal === 'build_muscle' ? 'Focus on slow, controlled eccentric movements.' : 'Maintain a steady heart rate during cardio blocks.'}
+                    {progressMessaging.nextFocus}
                   </p>
                 </div>
               </section>
@@ -1945,7 +3241,7 @@ function App() {
               <section className="mobile-habit card">
                 <h3>Coach Note</h3>
                 <p style={{ margin: 0, fontSize: '14px', fontStyle: 'italic', color: 'var(--text-muted)' }}>
-                  "Progress is rarely linear. Trust the process and keep showing up."
+                  "{progressMessaging.note}"
                 </p>
               </section>
             </div>
@@ -1967,20 +3263,22 @@ function App() {
                   <span className="metric-label" style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Streak</span>
                 </div>
                 <div className="metric-card" style={{ padding: '32px 24px' }}>
-                  <span className="metric-value" style={{ fontSize: '40px', letterSpacing: '-0.05em' }}>{(() => {
-                    const activeWorkouts = weeklyPlan.filter(item => item.intensity !== 'rest')
-                    if (activeWorkouts.length === 0) return 0
-                    return Math.round((weeklyPlan.filter(item => item.completed).length / activeWorkouts.length) * 100)
-                  })()}%</span>
-                  <span className="metric-label" style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Weekly Goal</span>
+                  <span className="metric-value" style={{ fontSize: '40px', letterSpacing: '-0.05em' }}>{progressMessaging.highlightValue}</span>
+                  <span className="metric-label" style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{progressMessaging.highlightLabel}</span>
                 </div>
               </div>
 
               <div className="insight-section" style={{ background: 'var(--bg)', padding: '32px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
-                <h3 style={{ fontSize: '18px', color: 'var(--primary)', marginBottom: '12px', fontWeight: '700' }}>Supporting Insight</h3>
+                <h3 style={{ fontSize: '18px', color: 'var(--primary)', marginBottom: '12px', fontWeight: '700' }}>This week’s story</h3>
                 <p style={{ margin: 0, color: 'var(--text-main)', lineHeight: '1.6', fontSize: '15px' }}>
-                  You've completed <strong>{progress?.totalCompleted || 0}</strong> sessions. Every workout is a deposit into your long-term health. Keep showing up—the hardest part is starting.
+                  <strong>{progressMessaging.headline}</strong> {progressMessaging.body}
                 </p>
+                <div style={{ marginTop: '18px', paddingTop: '18px', borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: '4px' }}>Next focus</div>
+                  <p style={{ margin: 0, color: 'var(--text-muted)', lineHeight: '1.55', fontSize: '14px' }}>
+                    {progressMessaging.nextFocus}
+                  </p>
+                </div>
               </div>
             </section>
 
@@ -1988,10 +3286,14 @@ function App() {
               <h3>Weekly insight</h3>
               <div className="side-card-content" style={{ padding: '24px' }}>
                 <p className="workout-meta" style={{ margin: 0, fontSize: '14px', lineHeight: '1.6' }}>
-                  {progress?.totalCompleted > 5 
-                    ? "Your consistency is building real momentum. Focus on maintaining your current streak to solidify these habits."
-                    : "Every session is a step toward your goal. Focus on showing up consistently this week to build your foundation."}
+                  {progressMessaging.note}
                 </p>
+                <div style={{ marginTop: '18px', paddingTop: '18px', borderTop: '1px solid var(--border)' }}>
+                  <h4 style={{ margin: '0 0 8px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-light)' }}>Snapshot</h4>
+                  <p className="workout-meta" style={{ margin: 0, lineHeight: '1.6' }}>
+                    {completedWorkoutCount} of {activeWorkoutCount} planned sessions completed. {adaptedSessionCount > 0 ? `${adaptedSessionCount} adjusted to stay on track.` : `Current weekly completion is ${currentWeekCompletionRate}%.`}
+                  </p>
+                </div>
               </div>
             </section>
           </div>
@@ -2005,11 +3307,10 @@ function App() {
         <div className="demo-banner">
           <div className="demo-banner-content">
             <span className="demo-label">Prototype / product exploration demo</span>
-            <span>New here? You can try the flow from scratch anytime.</span>
+            <span>{prototypeNarrative}</span>
           </div>
           <div className="demo-actions">
             <button className="demo-action-btn" onClick={handleResetDemo}>Start fresh</button>
-            <button className="demo-action-btn" onClick={handleTrySampleScenario}>Try sample scenario</button>
             <a 
               href="https://tally.so/r/68RRv5" 
               target="_blank" 
@@ -2023,18 +3324,28 @@ function App() {
         </div>
       ) : (
         <div className="mobile-app-header">
+          <div className="mobile-header-slot">
+            {showMobileHeaderBack ? (
+              <button className="header-nav-btn" onClick={handleMobileHeaderBack} aria-label="Go back">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+            ) : (
+              <div className="header-nav-spacer" />
+            )}
+          </div>
           <div className="mobile-title-area">
             <h1>AI Fitness Coach</h1>
-            <p>Plans that adapt to life</p>
+            <p>Consistency-first gym copilot</p>
           </div>
-          <button className="demo-menu-trigger" onClick={() => setIsDemoMenuOpen(!isDemoMenuOpen)}>
-            {isDemoMenuOpen ? '✕' : '•••'}
+          <button className="demo-menu-trigger" onClick={() => setIsDemoMenuOpen(!isDemoMenuOpen)} aria-label="Help">
+            {isDemoMenuOpen ? '✕' : '?'}
           </button>
           {isDemoMenuOpen && (
             <div className="mobile-demo-menu card">
-              <div className="menu-header">Demo Controls</div>
+              <div className="menu-header">Help</div>
               <button onClick={() => { handleResetDemo(); setIsDemoMenuOpen(false); }}>Start fresh</button>
-              <button onClick={() => { handleTrySampleScenario(); setIsDemoMenuOpen(false); }}>Try sample scenario</button>
               <a href="https://tally.so/r/68RRv5" target="_blank" rel="noopener noreferrer" onClick={() => setIsDemoMenuOpen(false)}>Share feedback</a>
             </div>
           )}
@@ -2045,7 +3356,7 @@ function App() {
         {!isMobile && (
           <header className="app-header">
             <h1>AI Fitness Coach</h1>
-            <p>Workout plans that adapt to real life</p>
+            <p>Adherence-first workouts for casual exercisers dealing with real-life gym friction.</p>
           </header>
         )}
 
@@ -2053,7 +3364,7 @@ function App() {
         <nav className="nav-tabs">
           <button
             className={activeTab === 'setup' ? 'active' : ''}
-            onClick={() => setActiveTab('setup')}
+            onClick={() => { setSetupMode('entry'); setActiveTab('setup') }}
           >
             Setup
           </button>
@@ -2087,6 +3398,12 @@ function App() {
       {renderContent()}
       </div>
 
+      {toastMessage && (
+        <div className="app-toast" role="status" aria-live="polite">
+          {toastMessage}
+        </div>
+      )}
+
       {isMobile && (
         <nav className="mobile-bottom-nav">
           {[
@@ -2109,7 +3426,12 @@ function App() {
             <button
               key={tab.id}
               className={activeTab === tab.id ? 'active' : ''}
-              onClick={() => setActiveTab(tab.id as TabKey)}
+              onClick={() => {
+                if (tab.id === 'setup') {
+                  setSetupMode('entry')
+                }
+                setActiveTab(tab.id as TabKey)
+              }}
             >
               <span className="nav-icon">{tab.icon}</span>
               <span className="nav-label">{tab.label}</span>
@@ -2119,18 +3441,18 @@ function App() {
       )}
 
       {modalExercise && (
-        <div className="modal-overlay" onClick={() => setModalExercise(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'center', alignItems: isMobile ? 'flex-end' : 'center', zIndex: 1000, padding: isMobile ? '0' : '20px', background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)' }}>
-          <div className="card modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', padding: '0', borderRadius: isMobile ? '24px 24px 0 0' : 'var(--radius-lg)', animation: isMobile ? 'slideUp 0.3s ease-out' : 'none' }}>
+        <div className="modal-overlay" onClick={() => setModalExercise(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'center', alignItems: isMobile ? 'flex-end' : 'center', zIndex: 1000, padding: isMobile ? '0' : '20px' }}>
+          <div className={`card modal-content ${isMobile ? 'mobile-sheet' : ''}`} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', padding: '0', borderRadius: isMobile ? '24px 24px 0 0' : 'var(--radius-lg)', animation: isMobile ? 'slideUp 0.3s ease-out' : 'none' }}>
             {isMobile && (
-              <div style={{ width: '100%', display: 'flex', justifyContent: 'center', padding: '12px 0', position: 'absolute', top: 0, zIndex: 20 }}>
-                <div style={{ width: '40px', height: '4px', background: 'rgba(255,255,255,0.5)', borderRadius: '2px' }}></div>
+              <div className="sheet-handle-area">
+                <div className="sheet-handle"></div>
               </div>
             )}
             {!isMobile && (
               <button className="modal-close" onClick={() => setModalExercise(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'white', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', zIndex: 10 }}>×</button>
             )}
             
-            <div className="video-container" style={{ width: '100%', aspectRatio: '16/9', background: '#000', position: 'relative' }}>
+            <div className={`video-container ${isMobile ? 'sheet-video' : ''}`} style={{ width: '100%', aspectRatio: '16/9', background: '#000', position: 'relative' }}>
               {modalExercise.videoUrl && modalExercise.videoUrl.includes('embed') ? (
                 <iframe
                   width="100%"
@@ -2143,49 +3465,50 @@ function App() {
                   style={{ border: 'none' }}
                 ></iframe>
               ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '32px', textAlign: 'center', background: 'var(--bg-soft)' }}>
-                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>📺</div>
-                  <h3 style={{ marginBottom: '8px' }}>Curated Demo Available</h3>
-                  <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '24px' }}>We've curated a high-quality demonstration for this exercise.</p>
+                <div className="sheet-video-fallback">
+                  <h3>Open movement demo</h3>
+                  <p>Watch the full exercise reference on YouTube.</p>
                   <a
                     href={modalExercise.videoUrl || modalExercise.backupVideoUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent(modalExercise.name + ' exercise demo')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="primary-cta"
-                    style={{ display: 'inline-block', width: 'auto', padding: '10px 24px', textDecoration: 'none' }}
+                    className="secondary sheet-link-action"
+                    style={{ display: 'inline-block', width: 'auto', textDecoration: 'none' }}
                   >
-                    Watch on YouTube →
+                    Open in YouTube
                   </a>
                 </div>
               )}
             </div>
 
-            <div style={{ padding: isMobile ? '24px 20px 40px' : '32px' }}>
-              <div style={{ marginBottom: '12px', display: 'flex', gap: '8px' }}>
+            <div className={isMobile ? 'sheet-body' : ''} style={{ padding: isMobile ? '24px 20px 40px' : '32px' }}>
+              <div className="sheet-badges" style={{ marginBottom: '12px', display: 'flex', gap: '8px' }}>
                 <span className="badge badge-accent" style={{ fontSize: '10px' }}>{modalExercise.muscle}</span>
                 <span className="badge badge-dark" style={{ fontSize: '10px' }}>{modalExercise.equipment}</span>
               </div>
-              <h2 style={{ fontSize: isMobile ? '24px' : '28px', marginBottom: '4px', color: 'var(--primary)', letterSpacing: '-0.02em' }}>{modalExercise.name}</h2>
-              <div className="workout-meta" style={{ fontSize: '14px', marginBottom: '24px', color: 'var(--text-muted)' }}>
+              <h2 className={isMobile ? 'sheet-title' : ''} style={{ fontSize: isMobile ? '24px' : '28px', marginBottom: '4px', color: 'var(--primary)', letterSpacing: '-0.02em' }}>{modalExercise.name}</h2>
+              <div className={`workout-meta ${isMobile ? 'sheet-meta' : ''}`} style={{ fontSize: '14px', marginBottom: '24px', color: 'var(--text-muted)' }}>
                 Targeting: <strong style={{ color: 'var(--primary)' }}>{modalExercise.sets} sets × {modalExercise.reps}</strong>
               </div>
 
               <div className="tips-section" style={{ background: 'var(--bg-soft)', padding: '20px', borderRadius: '12px' }}>
-                <h3 style={{ fontSize: '14px', marginBottom: '16px', fontWeight: '700', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '16px' }}>💡</span> Coaching Tips
+                <h3 className={isMobile ? 'sheet-section-title' : ''} style={{ fontSize: '14px', marginBottom: '16px', fontWeight: '700', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Coaching Tips
                 </h3>
                 <div className="tips-list">
                   {(modalExercise.tips && modalExercise.tips.length > 0 ? modalExercise.tips : ['Focus on controlled movement', 'Maintain proper form throughout', 'Breathe consistently during the set']).map((tip, i) => (
-                    <div key={i} className="tip-item" style={{ marginBottom: '12px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                      <span className="tip-number" style={{ background: 'var(--primary)', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', flexShrink: 0, fontWeight: '700', marginTop: '2px' }}>{i+1}</span>
-                      <span style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.5' }}>{tip}</span>
+                    <div key={i} className={`tip-item ${isMobile ? 'sheet-tip-item' : ''}`} style={{ marginBottom: '12px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                      <span className={`tip-number ${isMobile ? 'sheet-tip-number' : ''}`} style={{ background: 'var(--primary)', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', flexShrink: 0, fontWeight: '700', marginTop: '2px' }}>{i+1}</span>
+                      <span className={isMobile ? 'sheet-tip-text' : ''} style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.5' }}>{tip}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
-                <button className="primary-cta" onClick={() => setModalExercise(null)} style={{ flex: 1, height: '48px', fontSize: '15px', borderRadius: '10px' }}>Back to workout</button>
+              <div className={isMobile ? 'sheet-footer' : ''} style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                <button className={isMobile ? 'secondary sheet-close-action' : 'primary-cta'} onClick={() => setModalExercise(null)} style={{ flex: 1, height: '48px', fontSize: '15px', borderRadius: '10px' }}>
+                  {isMobile ? 'Done' : 'Back to workout'}
+                </button>
               </div>
             </div>
           </div>

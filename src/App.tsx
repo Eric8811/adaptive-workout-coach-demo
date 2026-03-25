@@ -656,6 +656,16 @@ function App() {
     return null
   })
 
+  const [onboardingStep, setOnboardingStep] = useState(1)
+  const [isDemoMenuOpen, setIsDemoMenuOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const [modalExercise, setModalExercise] = useState<Exercise | null>(null)
 
   useEffect(() => {
@@ -787,10 +797,12 @@ function App() {
     setWeeklyPlan(newPlan)
     setSelectedDay(null)
     setActiveTab('plan')
+    setOnboardingStep(1)
   }
 
   function handleResetDemo() {
     localStorage.removeItem(STORAGE_KEY)
+    setOnboardingStep(1)
     window.location.reload()
   }
 
@@ -813,6 +825,7 @@ function App() {
     setProgress({ totalCompleted: 1, streak: 1 })
     setSelectedDay(samplePlan[1].day) // Select the second day as "today"
     setActiveTab('today')
+    setOnboardingStep(1)
   }
 
   function handleGenerateNextWeek() {
@@ -885,14 +898,17 @@ function App() {
 
     setWeeklyPlan((prev) =>
       prev.map((item) => {
-        if (item.day !== todayWorkout.day || !item.exercises) return item
+        if (item.day !== todayWorkout.day) return item
+        
+        const exercises = (item.exercises && item.exercises.length > 0)
+          ? [...item.exercises]
+          : [...getWorkoutExercises(item.title.replace(' (Light)', ''))]
 
-        const updated = [...item.exercises]
-        const current = updated[index]
+        const current = exercises[index]
+        if (!current) return item
         
         // Find the next alternative to cycle through
-        // If we have alternatives, pick the first one and move it to the end for next time
-        if (!current.alternatives || current.alternatives.length === 0) return item
+        if (!current.alternatives || current.alternatives.length === 0) return { ...item, exercises }
 
         const nextAltName = current.alternatives[0]
         const remainingAlts = [...current.alternatives.slice(1), current.name]
@@ -904,7 +920,6 @@ function App() {
             ...EXERCISE_LIBRARY[nextAltName],
             sets: current.sets,
             reps: current.reps,
-            // Keep the cycle going
             alternatives: remainingAlts
           }
         } else {
@@ -924,8 +939,8 @@ function App() {
           }
         }
 
-        updated[index] = nextExercise
-        return { ...item, exercises: updated }
+        exercises[index] = nextExercise
+        return { ...item, exercises }
       })
     )
   }
@@ -933,6 +948,169 @@ function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'setup':
+        if (isMobile) {
+          return (
+            <div className="onboarding-layout">
+              <div className="onboarding-progress">
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${(onboardingStep / 4) * 100}%` }}></div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.6 }}>
+                  <div className="progress-text" style={{ fontSize: '10px', letterSpacing: '0.05em' }}>STEP {onboardingStep} OF 4</div>
+                  <div className="compact-summary" style={{ fontSize: '10px', fontWeight: '600', textTransform: 'capitalize' }}>
+                    {profile.goal.replace('_', ' ')} · {profile.weeklyDays} days/week · {profile.duration} min
+                  </div>
+                </div>
+              </div>
+
+              <div className="onboarding-card card">
+                {onboardingStep === 1 && (
+                  <div className="onboarding-step">
+                    <h2>What's your goal?</h2>
+                    <p className="description">Choose the focus that best fits your training intent.</p>
+                    <div className="option-grid">
+                      {[
+                        { id: 'build_muscle', label: 'Build Muscle', desc: 'Focus on strength and growth' },
+                        { id: 'lose_fat', label: 'Lose Fat', desc: 'Sustainable weight management' },
+                        { id: 'stay_consistent', label: 'Stay Consistent', desc: 'Build the habit of showing up' },
+                        { id: 'general_fitness', label: 'General Fitness', desc: 'All-around health and energy' }
+                      ].map((opt) => (
+                        <button
+                          key={opt.id}
+                          className={`option-card ${profile.goal === opt.id ? 'active' : ''}`}
+                          onClick={() => setProfile(prev => ({ ...prev, goal: opt.id as Goal }))}
+                        >
+                          <div className="option-label">{opt.label}</div>
+                          <div className="option-desc">{opt.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {onboardingStep === 2 && (
+                  <div className="onboarding-step">
+                    <h2>Plan basics</h2>
+                    <p className="description">How much time do you have each week?</p>
+                    
+                    <div className="form-group">
+                      <label>Training stage</label>
+                      <select
+                        value={profile.experience}
+                        onChange={(e) => setProfile(prev => ({ ...prev, experience: e.target.value as Experience }))}
+                      >
+                        <option value="beginner">Beginner</option>
+                        <option value="returning">Returning</option>
+                        <option value="some_experience">Some experience</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ marginTop: '20px' }}>
+                      <label>Days per week</label>
+                      <select
+                        value={profile.weeklyDays}
+                        onChange={(e) => setProfile(prev => ({ ...prev, weeklyDays: Number(e.target.value) }))}
+                      >
+                        <option value={2}>2 days</option>
+                        <option value={3}>3 days</option>
+                        <option value={4}>4 days</option>
+                        <option value={5}>5 days</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ marginTop: '20px' }}>
+                      <label>Session duration</label>
+                      <select
+                        value={profile.duration}
+                        onChange={(e) => setProfile(prev => ({ ...prev, duration: Number(e.target.value) }))}
+                      >
+                        <option value={30}>30 min</option>
+                        <option value={35}>35 min</option>
+                        <option value={40}>40 min</option>
+                        <option value={45}>45 min</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {onboardingStep === 3 && (
+                  <div className="onboarding-step">
+                    <h2>Equipment</h2>
+                    <p className="description">What do you have access to?</p>
+
+                    <div className="form-group">
+                      <label>Location</label>
+                      <select
+                        value={profile.location}
+                        onChange={(e) => setProfile(prev => ({ ...prev, location: e.target.value as Location }))}
+                      >
+                        <option value="gym">Gym</option>
+                        <option value="home">Home</option>
+                        <option value="both">Both</option>
+                      </select>
+                    </div>
+
+                    <div className="chip-section" style={{ marginTop: '24px' }}>
+                      <label style={{ fontSize: '14px', fontWeight: '600', display: 'block', marginBottom: '12px' }}>Equipment available</label>
+                      <div className="chip-row">
+                        {['Dumbbells', 'Basic machines', 'Bench', 'Bodyweight only'].map((item) => (
+                          <button
+                            key={item}
+                            type="button"
+                            className={profile.equipment.includes(item) ? 'chip active-chip' : 'chip'}
+                            onClick={() => updateEquipment(item)}
+                          >
+                            {item}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {onboardingStep === 4 && (
+                  <div className="onboarding-step">
+                    <h2>Daily life</h2>
+                    <p className="description">Other regular activities to balance your plan.</p>
+
+                    <div className="chip-section">
+                      <div className="chip-row">
+                        {['Swim', 'Tennis', 'Running'].map((item) => (
+                          <button
+                            key={item}
+                            type="button"
+                            className={profile.activities.includes(item) ? 'chip active-chip' : 'chip'}
+                            onClick={() => updateActivities(item)}
+                          >
+                            {item}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="summary-card" style={{ marginTop: '32px', background: 'var(--bg-soft)', padding: '20px', borderRadius: '12px' }}>
+                      <h4 style={{ margin: '0 0 12px', fontSize: '14px' }}>Your selections</h4>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                        {profile.weeklyDays} days/week • {profile.duration} min • {profile.location}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="onboarding-actions" style={{ marginTop: '40px', display: 'flex', gap: '12px' }}>
+                  {onboardingStep > 1 && (
+                    <button className="secondary" style={{ flex: 1 }} onClick={() => setOnboardingStep(prev => prev - 1)}>Back</button>
+                  )}
+                  {onboardingStep < 4 ? (
+                    <button className="primary-cta" style={{ flex: 2 }} onClick={() => setOnboardingStep(prev => prev + 1)}>Continue</button>
+                  ) : (
+                    <button className="primary-cta" style={{ flex: 2 }} onClick={handleGenerateWeek}>Build My Plan</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        }
         return (
           <div className="tab-layout">
             <section className="card main-card">
@@ -1089,6 +1267,56 @@ function App() {
         )
 
       case 'plan':
+        if (isMobile) {
+          return (
+            <div className="plan-mobile-layout">
+              <section className="insight-hero card">
+                <h3>Weekly Focus</h3>
+                <p className="workout-meta" style={{ margin: 0, lineHeight: '1.6', fontSize: '15px' }}>
+                  {weeklyPlan.some(item => item.title.includes('(Light)')) 
+                    ? "Recovery week focused on reducing fatigue while maintaining movement quality."
+                    : weeklyPlan.some(item => item.duration > profile.duration)
+                      ? "Progression week! We've increased volume to match your consistency."
+                      : `Target: ${profile.goal.replace('_', ' ')}. Consistency is your primary metric this week.`}
+                </p>
+              </section>
+
+              <div className="schedule-agenda">
+                {weeklyPlan.map((item) => {
+                  const isToday = !selectedDay && item.day === DAYS[new Date().getDay() - 1]
+                  const status = item.completed ? 'Done' : item.intensity === 'rest' ? 'Rest' : isToday ? 'Today' : item.intensity === 'light' ? 'Light' : ''
+
+                  return (
+                    <div
+                      key={item.day}
+                      className={`agenda-item ${item.intensity !== 'rest' ? 'clickable' : 'rest'} ${item.completed ? 'completed' : ''} ${isToday ? 'active' : ''}`}
+                      onClick={() => {
+                        if (item.intensity !== 'rest') {
+                          setSelectedDay(item.day)
+                          setActiveTab('today')
+                        }
+                      }}
+                    >
+                      <div className="agenda-day">
+                        <div className="day-name">{item.day}</div>
+                        {isToday && <div className="today-dot"></div>}
+                      </div>
+                      <div className="agenda-content">
+                        <div className="agenda-title">{item.title}</div>
+                        {item.intensity !== 'rest' && (
+                          <div className="agenda-meta">{item.duration}m • {item.intensity}</div>
+                        )}
+                      </div>
+                      {status && status !== 'Today' && (
+                        <div className={`agenda-status ${status.toLowerCase()}`}>{status}</div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        }
         return (
           <div className="tab-layout">
             <section className="card main-card">
@@ -1157,6 +1385,120 @@ function App() {
                 <h2>Ready to start?</h2>
                 <p>Go to the Setup tab to build your custom training plan.</p>
               </section>
+            </div>
+          )
+        }
+        if (isMobile) {
+          return (
+            <div className="today-mobile-layout">
+              <div className="today-hero">
+                <div className="session-label">{todayWorkout.day} SESSION</div>
+                <h1 className="workout-name">{todayWorkout.title}</h1>
+                <div className="workout-meta-row">
+                  <span>⏱️ {todayWorkout.duration}m</span>
+                  <span>⚡ {todayWorkout.intensity}</span>
+                  <span>💪 {todayWorkout.exercises?.length || 0} exercises</span>
+                </div>
+              </div>
+
+              <div className="mobile-actions-container">
+                <button
+                  className={`primary-cta large ${todayWorkout.completed ? 'completed-state' : ''}`}
+                  onClick={handleMarkDone}
+                  disabled={todayWorkout.completed}
+                  style={todayWorkout.completed ? {
+                    background: 'var(--success)',
+                    color: 'white',
+                    boxShadow: '0 8px 16px -6px rgba(16, 185, 129, 0.3)',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  } : {}}
+                >
+                  {todayWorkout.completed ? (
+                    <>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      Completed for today
+                    </>
+                  ) : 'Complete workout'}
+                </button>
+
+                <div className="mobile-adjust-section card">
+                  <h3>Adjust today's session</h3>
+                  <div className="chip-row">
+                    {[
+                      { id: 'short', label: 'Short on time' },
+                      { id: 'tired', label: 'Low energy' },
+                      { id: 'machine_taken', label: 'No machine' }
+                    ].map((adj) => (
+                      <button
+                        key={adj.id}
+                        className={adjustment === adj.id ? 'chip active-chip' : 'chip'}
+                        onClick={() => setAdjustment(adjustment === adj.id ? 'none' : adj.id as any)}
+                      >
+                        {adj.label}
+                      </button>
+                    ))}
+                  </div>
+                  {adjustment !== 'none' && (
+                    <div className="mobile-adjusted-preview">
+                      <div className="preview-header">
+                        <span>New line-up</span>
+                        <button className="ghost" onClick={() => setAdjustment('none')}>Cancel</button>
+                      </div>
+                      <div className="preview-list" style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {adjustedExercises.map((ex, i) => (
+                          <div key={i} style={{ fontSize: '12px', display: 'flex', justifyContent: 'space-between', opacity: 0.8 }}>
+                            <span>{ex.name}</span>
+                            <span>{ex.sets}×{ex.reps}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <button className="primary-cta small" onClick={() => {
+                        setWeeklyPlan((prev) => prev.map((item) => item.day === todayWorkout.day ? { ...item, exercises: adjustedExercises } : item))
+                        setAdjustment('none')
+                      }}>Apply adjustment</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="exercise-feed">
+                {(() => {
+                  const exercises = todayWorkout.exercises && todayWorkout.exercises.length > 0
+                    ? todayWorkout.exercises
+                    : getWorkoutExercises(todayWorkout.title.replace(' (Light)', ''))
+
+                  return exercises.map((exercise: Exercise, index: number) => {
+                    return (
+                      <div key={`${exercise.name}-${index}`} className="mobile-exercise-card card">
+                        <div className="ex-header">
+                          <div className="ex-info">
+                            <h3>{exercise.name}</h3>
+                            <div className="ex-tags">
+                              <span>{exercise.muscle}</span>
+                              <span>{exercise.equipment}</span>
+                            </div>
+                          </div>
+                          <div className="ex-reps">
+                            {exercise.sets}×{exercise.reps}
+                          </div>
+                        </div>
+                        <div className="ex-actions" style={{ display: 'flex', gap: '12px', paddingTop: '16px', borderTop: '1px solid var(--border)', marginTop: '4px' }}>
+                          <button className="ghost" style={{ flex: 1, fontSize: '13px', padding: '8px 0', border: 'none', background: 'transparent', color: 'var(--text-muted)' }} onClick={() => handleWatchDemo(exercise)}>
+                            Watch demo
+                          </button>
+                          <button className="secondary" style={{ flex: 1, fontSize: '13px', padding: '8px', background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--primary)' }} onClick={() => handleSwapExercise(index)}>
+                            Swap
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                })()}
+              </div>
             </div>
           )
         }
@@ -1344,6 +1686,73 @@ function App() {
         )
 
       case 'reflect':
+        if (isMobile) {
+          return (
+            <div className="reflect-mobile-layout">
+              <section className="reflect-hero card">
+                <h2>Weekly Reflection</h2>
+                <p className="description">Quickly review your week to optimize what's next.</p>
+              </section>
+
+              <div className="reflect-form card">
+                <div className="form-group">
+                  <label>Completion: {checkIn.completionRate}%</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={checkIn.completionRate}
+                    onChange={(e) => setCheckIn(prev => ({ ...prev, completionRate: Number(e.target.value) }))}
+                  />
+                </div>
+
+                <div className="mobile-select-grid">
+                  <div className="form-group">
+                    <label>Energy</label>
+                    <select value={checkIn.energy} onChange={(e) => setCheckIn(prev => ({ ...prev, energy: Number(e.target.value) }))}>
+                      {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Sleep</label>
+                    <select value={checkIn.sleepQuality} onChange={(e) => setCheckIn(prev => ({ ...prev, sleepQuality: Number(e.target.value) }))}>
+                      {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Fatigue</label>
+                    <select value={checkIn.fatigue} onChange={(e) => setCheckIn(prev => ({ ...prev, fatigue: Number(e.target.value) }))}>
+                      {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <textarea
+                  className="mobile-note"
+                  value={checkIn.note}
+                  onChange={(e) => setCheckIn(prev => ({ ...prev, note: e.target.value }))}
+                  placeholder="Any wins or challenges?"
+                />
+
+                <div className="recommendation-preview" style={{ marginTop: '24px', padding: '20px', background: 'var(--bg-soft)', borderRadius: '12px' }}>
+                  <h4 style={{ margin: '0 0 8px', fontSize: '14px', color: 'var(--accent)' }}>Coach recommendation</h4>
+                  <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.5' }}>
+                    {checkIn.fatigue >= 4 
+                      ? "Your fatigue levels are high. I recommend a deload week focused on recovery and light movement to prevent burnout." 
+                      : checkIn.completionRate >= 80 
+                        ? "Excellent consistency this week. You're ready for a slight increase in volume to keep your progress moving forward."
+                        : "You're building a solid foundation. Let's maintain this volume for another week to lock in your consistency."}
+                  </p>
+                </div>
+
+                <button className="primary-cta large" style={{ marginTop: '32px' }} onClick={handleGenerateNextWeek}>
+                  Update next week’s plan
+                </button>
+              </div>
+            </div>
+          )
+        }
         return (
           <div className="tab-layout">
             <section className="card main-card">
@@ -1495,6 +1904,53 @@ function App() {
         )
 
       case 'progress':
+        if (isMobile) {
+          return (
+            <div className="progress-mobile-layout">
+              <div className="metrics-hero">
+                <div className="metric-item">
+                  <span className="val">{progress?.totalCompleted || 0}</span>
+                  <span className="lab">Sessions</span>
+                </div>
+                <div className="metric-item highlight">
+                  <span className="val">{progress?.streak || 0}</span>
+                  <span className="lab">Streak</span>
+                </div>
+                <div className="metric-item">
+                  <span className="val">{(() => {
+                    const activeWorkouts = weeklyPlan.filter(item => item.intensity !== 'rest')
+                    if (activeWorkouts.length === 0) return 0
+                    const rate = Math.round((weeklyPlan.filter(item => item.completed).length / activeWorkouts.length) * 100)
+                    return `${rate}%`
+                  })()}</span>
+                  <span className="lab">Weekly Goal</span>
+                </div>
+              </div>
+
+              <section className="mobile-insight card">
+                <h3>Weekly insight</h3>
+                <p style={{ margin: 0, fontSize: '15px', lineHeight: '1.6' }}>
+                  {progress?.totalCompleted > 5 
+                    ? "Your consistency is building real momentum. Focus on maintaining your current streak to solidify these habits."
+                    : "Every session is a step toward your goal. Focus on showing up consistently this week to build your foundation."}
+                </p>
+                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: '4px' }}>Next focus</div>
+                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                    {profile.goal === 'build_muscle' ? 'Focus on slow, controlled eccentric movements.' : 'Maintain a steady heart rate during cardio blocks.'}
+                  </p>
+                </div>
+              </section>
+
+              <section className="mobile-habit card">
+                <h3>Coach Note</h3>
+                <p style={{ margin: 0, fontSize: '14px', fontStyle: 'italic', color: 'var(--text-muted)' }}>
+                  "Progress is rarely linear. Trust the process and keep showing up."
+                </p>
+              </section>
+            </div>
+          )
+        }
         return (
           <div className="tab-layout">
             <section className="card main-card">
@@ -1545,71 +2001,134 @@ function App() {
 
   return (
     <>
-      <div className="demo-banner">
-        <div className="demo-banner-content">
-          <span className="demo-label">Prototype / product exploration demo</span>
-          <span>New here? You can try the flow from scratch anytime.</span>
+      {!isMobile ? (
+        <div className="demo-banner">
+          <div className="demo-banner-content">
+            <span className="demo-label">Prototype / product exploration demo</span>
+            <span>New here? You can try the flow from scratch anytime.</span>
+          </div>
+          <div className="demo-actions">
+            <button className="demo-action-btn" onClick={handleResetDemo}>Start fresh</button>
+            <button className="demo-action-btn" onClick={handleTrySampleScenario}>Try sample scenario</button>
+            <a 
+              href="https://tally.so/r/68RRv5" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="demo-action-btn secondary" 
+              style={{ textDecoration: 'none' }}
+            >
+              Share feedback
+            </a>
+          </div>
         </div>
-        <div className="demo-actions">
-          <button className="demo-action-btn" onClick={handleResetDemo}>Start fresh</button>
-          <button className="demo-action-btn" onClick={handleTrySampleScenario}>Try sample scenario</button>
-          <a 
-            href="https://tally.so/r/68RRv5" 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="demo-action-btn secondary" 
-            style={{ textDecoration: 'none' }}
-          >
-            Share feedback
-          </a>
+      ) : (
+        <div className="mobile-app-header">
+          <div className="mobile-title-area">
+            <h1>AI Fitness Coach</h1>
+            <p>Plans that adapt to life</p>
+          </div>
+          <button className="demo-menu-trigger" onClick={() => setIsDemoMenuOpen(!isDemoMenuOpen)}>
+            {isDemoMenuOpen ? '✕' : '•••'}
+          </button>
+          {isDemoMenuOpen && (
+            <div className="mobile-demo-menu card">
+              <div className="menu-header">Demo Controls</div>
+              <button onClick={() => { handleResetDemo(); setIsDemoMenuOpen(false); }}>Start fresh</button>
+              <button onClick={() => { handleTrySampleScenario(); setIsDemoMenuOpen(false); }}>Try sample scenario</button>
+              <a href="https://tally.so/r/68RRv5" target="_blank" rel="noopener noreferrer" onClick={() => setIsDemoMenuOpen(false)}>Share feedback</a>
+            </div>
+          )}
         </div>
-      </div>
-      <div className="app-container">
-        <header className="app-header">
-          <h1>AI Fitness Coach</h1>
-          <p>Workout plans that adapt to real life</p>
-        </header>
+      )}
 
-      <nav className="nav-tabs">
-        <button
-          className={activeTab === 'setup' ? 'active' : ''}
-          onClick={() => setActiveTab('setup')}
-        >
-          Setup
-        </button>
-        <button
-          className={activeTab === 'plan' ? 'active' : ''}
-          onClick={() => setActiveTab('plan')}
-        >
-          Plan
-        </button>
-        <button
-          className={activeTab === 'today' ? 'active' : ''}
-          onClick={() => setActiveTab('today')}
-        >
-          Today
-        </button>
-        <button
-          className={activeTab === 'reflect' ? 'active' : ''}
-          onClick={() => setActiveTab('reflect')}
-        >
-          Reflect
-        </button>
-        <button
-          className={activeTab === 'progress' ? 'active' : ''}
-          onClick={() => setActiveTab('progress')}
-        >
-          Progress
-        </button>
-      </nav>
+      <div className="app-container">
+        {!isMobile && (
+          <header className="app-header">
+            <h1>AI Fitness Coach</h1>
+            <p>Workout plans that adapt to real life</p>
+          </header>
+        )}
+
+      {!isMobile && (
+        <nav className="nav-tabs">
+          <button
+            className={activeTab === 'setup' ? 'active' : ''}
+            onClick={() => setActiveTab('setup')}
+          >
+            Setup
+          </button>
+          <button
+            className={activeTab === 'plan' ? 'active' : ''}
+            onClick={() => setActiveTab('plan')}
+          >
+            Plan
+          </button>
+          <button
+            className={activeTab === 'today' ? 'active' : ''}
+            onClick={() => setActiveTab('today')}
+          >
+            Today
+          </button>
+          <button
+            className={activeTab === 'reflect' ? 'active' : ''}
+            onClick={() => setActiveTab('reflect')}
+          >
+            Reflect
+          </button>
+          <button
+            className={activeTab === 'progress' ? 'active' : ''}
+            onClick={() => setActiveTab('progress')}
+          >
+            Progress
+          </button>
+        </nav>
+      )}
 
       {renderContent()}
       </div>
 
+      {isMobile && (
+        <nav className="mobile-bottom-nav">
+          {[
+            { id: 'setup', label: 'Setup', icon: (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            )},
+            { id: 'plan', label: 'Plan', icon: (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            )},
+            { id: 'today', label: 'Today', icon: (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            )},
+            { id: 'reflect', label: 'Reflect', icon: (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.38 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            )},
+            { id: 'progress', label: 'Progress', icon: (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            )}
+          ].map(tab => (
+            <button
+              key={tab.id}
+              className={activeTab === tab.id ? 'active' : ''}
+              onClick={() => setActiveTab(tab.id as TabKey)}
+            >
+              <span className="nav-icon">{tab.icon}</span>
+              <span className="nav-label">{tab.label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
+
       {modalExercise && (
-        <div className="modal-overlay" onClick={() => setModalExercise(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
-          <div className="card modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', padding: '0' }}>
-            <button className="modal-close" onClick={() => setModalExercise(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'white', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', zIndex: 10 }}>×</button>
+        <div className="modal-overlay" onClick={() => setModalExercise(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'center', alignItems: isMobile ? 'flex-end' : 'center', zIndex: 1000, padding: isMobile ? '0' : '20px', background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)' }}>
+          <div className="card modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', padding: '0', borderRadius: isMobile ? '24px 24px 0 0' : 'var(--radius-lg)', animation: isMobile ? 'slideUp 0.3s ease-out' : 'none' }}>
+            {isMobile && (
+              <div style={{ width: '100%', display: 'flex', justifyContent: 'center', padding: '12px 0', position: 'absolute', top: 0, zIndex: 20 }}>
+                <div style={{ width: '40px', height: '4px', background: 'rgba(255,255,255,0.5)', borderRadius: '2px' }}></div>
+              </div>
+            )}
+            {!isMobile && (
+              <button className="modal-close" onClick={() => setModalExercise(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'white', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', zIndex: 10 }}>×</button>
+            )}
             
             <div className="video-container" style={{ width: '100%', aspectRatio: '16/9', background: '#000', position: 'relative' }}>
               {modalExercise.videoUrl && modalExercise.videoUrl.includes('embed') ? (
@@ -1641,32 +2160,32 @@ function App() {
               )}
             </div>
 
-            <div style={{ padding: '32px' }}>
-              <div style={{ marginBottom: '16px', display: 'flex', gap: '8px' }}>
-                <span className="badge badge-accent">{modalExercise.muscle}</span>
-                <span className="badge badge-dark">{modalExercise.equipment}</span>
+            <div style={{ padding: isMobile ? '24px 20px 40px' : '32px' }}>
+              <div style={{ marginBottom: '12px', display: 'flex', gap: '8px' }}>
+                <span className="badge badge-accent" style={{ fontSize: '10px' }}>{modalExercise.muscle}</span>
+                <span className="badge badge-dark" style={{ fontSize: '10px' }}>{modalExercise.equipment}</span>
               </div>
-              <h2 style={{ fontSize: '28px', marginBottom: '8px', color: 'var(--primary)' }}>{modalExercise.name}</h2>
-              <div className="workout-meta" style={{ fontSize: '16px', marginBottom: '24px', color: 'var(--text-muted)' }}>
-                Targeting: <strong>{modalExercise.sets} sets × {modalExercise.reps}</strong>
+              <h2 style={{ fontSize: isMobile ? '24px' : '28px', marginBottom: '4px', color: 'var(--primary)', letterSpacing: '-0.02em' }}>{modalExercise.name}</h2>
+              <div className="workout-meta" style={{ fontSize: '14px', marginBottom: '24px', color: 'var(--text-muted)' }}>
+                Targeting: <strong style={{ color: 'var(--primary)' }}>{modalExercise.sets} sets × {modalExercise.reps}</strong>
               </div>
 
-              <div className="tips-section" style={{ background: 'var(--bg-soft)', padding: '24px', borderRadius: 'var(--radius-md)' }}>
-                <h3 style={{ fontSize: '18px', marginBottom: '20px', fontWeight: '700', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '20px' }}>💡</span> Coaching Tips
+              <div className="tips-section" style={{ background: 'var(--bg-soft)', padding: '20px', borderRadius: '12px' }}>
+                <h3 style={{ fontSize: '14px', marginBottom: '16px', fontWeight: '700', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px' }}>💡</span> Coaching Tips
                 </h3>
                 <div className="tips-list">
                   {(modalExercise.tips && modalExercise.tips.length > 0 ? modalExercise.tips : ['Focus on controlled movement', 'Maintain proper form throughout', 'Breathe consistently during the set']).map((tip, i) => (
-                    <div key={i} className="tip-item" style={{ marginBottom: '16px', display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                      <span className="tip-number" style={{ background: 'var(--primary)', color: 'white', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', flexShrink: 0, fontWeight: '700' }}>{i+1}</span>
-                      <span style={{ fontSize: '15px', color: 'var(--text-main)', lineHeight: '1.6' }}>{tip}</span>
+                    <div key={i} className="tip-item" style={{ marginBottom: '12px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                      <span className="tip-number" style={{ background: 'var(--primary)', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', flexShrink: 0, fontWeight: '700', marginTop: '2px' }}>{i+1}</span>
+                      <span style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.5' }}>{tip}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div style={{ marginTop: '32px', display: 'flex', gap: '12px' }}>
-                <button className="primary-cta" onClick={() => setModalExercise(null)} style={{ flex: 1 }}>Got it, let's work</button>
+              <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                <button className="primary-cta" onClick={() => setModalExercise(null)} style={{ flex: 1, height: '48px', fontSize: '15px', borderRadius: '10px' }}>Back to workout</button>
               </div>
             </div>
           </div>

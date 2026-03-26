@@ -9,6 +9,7 @@ type Goal =
   | 'general_fitness'
 type Experience = 'beginner' | 'returning' | 'some_experience'
 type Location = 'gym' | 'home' | 'both'
+type Adjustment = 'none' | 'short' | 'tired' | 'machine_taken'
 
 type CheckIn = {
   completionRate: number
@@ -146,6 +147,12 @@ const DEMO_SCENARIOS: DemoScenario[] = [
       note: 'Running volume was high and recovery slipped.',
     },
   },
+]
+
+const ADJUSTMENT_OPTIONS: { id: Exclude<Adjustment, 'none'>; label: string }[] = [
+  { id: 'short', label: 'Only 20 min' },
+  { id: 'tired', label: 'Low energy' },
+  { id: 'machine_taken', label: 'Machine occupied' },
 ]
 
 const EXERCISE_LIBRARY: Record<string, Exercise> = {
@@ -1240,7 +1247,7 @@ function App() {
     return generateWeeklyPlan(profile)
   })
 
-  const [adjustment, setAdjustment] = useState<'none' | 'short' | 'tired' | 'machine_taken'>(() => {
+  const [adjustment, setAdjustment] = useState<Adjustment>(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) return JSON.parse(saved).adjustment
     return 'none'
@@ -1281,10 +1288,10 @@ function App() {
   const [onboardingStep, setOnboardingStep] = useState(1)
   const [setupMode, setSetupMode] = useState<'entry' | 'build' | 'scenario'>('entry')
   const [isDemoMenuOpen, setIsDemoMenuOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 960)
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768)
+    const handleResize = () => setIsMobile(window.innerWidth <= 960)
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
@@ -2270,9 +2277,17 @@ function App() {
           return (
             <div className="tab-layout">
               <section className="card main-card">
-                <button className="ghost setup-back-link" onClick={() => setSetupMode('entry')}>Back</button>
-                <h2 style={{ fontSize: '24px', letterSpacing: '-0.03em' }}>Choose a sample week</h2>
-                <p className="description">Use a sample scenario to preview the product before configuring your own plan.</p>
+                <div className="desktop-panel-header">
+                  <button className="desktop-back-btn" onClick={() => setSetupMode('entry')} aria-label="Go back">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M15 18l-6-6 6-6" />
+                    </svg>
+                  </button>
+                  <div className="desktop-panel-copy">
+                    <h2 style={{ fontSize: '24px', letterSpacing: '-0.03em' }}>Choose a sample week</h2>
+                    <p className="description">Use a sample scenario to preview the product before configuring your own plan.</p>
+                  </div>
+                </div>
 
                 <div className="scenario-grid desktop-scenario-grid">
                   {DEMO_SCENARIOS.map((scenario) => (
@@ -2303,11 +2318,19 @@ function App() {
         return (
           <div className="tab-layout">
             <section className="card main-card">
-              <h2 style={{ fontSize: '24px', letterSpacing: '-0.03em' }}>Build your plan</h2>
-              <p className="description">
-                Build a gym plan that stays doable when time, energy, or equipment changes.
-              </p>
-              <button className="ghost setup-back-link" onClick={() => setSetupMode('entry')}>Back</button>
+              <div className="desktop-panel-header">
+                <button className="desktop-back-btn" onClick={() => setSetupMode('entry')} aria-label="Go back">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15 18l-6-6 6-6" />
+                  </svg>
+                </button>
+                <div className="desktop-panel-copy">
+                  <h2 style={{ fontSize: '24px', letterSpacing: '-0.03em' }}>Build your plan</h2>
+                  <p className="description">
+                    Build a gym plan that stays doable when time, energy, or equipment changes.
+                  </p>
+                </div>
+              </div>
 
               <div className="form-section-title">Goals</div>
               <div className="form-grid">
@@ -2614,7 +2637,7 @@ function App() {
           </div>
         )
 
-      case 'today':
+      case 'today': {
         if (!todayWorkout) {
           return (
             <div className="tab-layout">
@@ -2683,15 +2706,11 @@ function App() {
                   <div className="mobile-adjust-section card">
                     <h3>Adjust today's session</h3>
                     <div className="chip-row">
-                      {[
-                        { id: 'short', label: 'Only 20 min' },
-                        { id: 'tired', label: 'Low energy' },
-                        { id: 'machine_taken', label: 'Machine occupied' }
-                      ].map((adj) => (
+                      {ADJUSTMENT_OPTIONS.map((adj) => (
                         <button
                           key={adj.id}
                           className={adjustment === adj.id ? 'chip active-chip' : 'chip'}
-                          onClick={() => setAdjustment(adjustment === adj.id ? 'none' : adj.id as any)}
+                          onClick={() => setAdjustment(adjustment === adj.id ? 'none' : adj.id)}
                         >
                           {adj.label}
                         </button>
@@ -2805,25 +2824,34 @@ function App() {
                 </div>
 
                 <div className="today-primary-actions" style={{ marginBottom: '48px' }}>
+                  <div style={{ marginTop: '20px', padding: '20px 22px', borderRadius: '16px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-light)', marginBottom: '8px' }}>Why today looks like this</div>
+                    <h4 style={{ margin: '0 0 6px', fontSize: '16px' }}>{todayMessaging.title}</h4>
+                    <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6' }}>{todayMessaging.body}</p>
+                    {(todayActionNote || appliedWorkoutMessaging) && (
+                      <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border)', fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.55' }}>
+                        {todayActionNote || appliedWorkoutMessaging}
+                      </div>
+                    )}
+                  </div>
+
                   {todayWorkout.completed ? (
                     <div className="completion-panel session-state-panel card" style={{ padding: '22px' }}>
-                      <div className="completion-panel-header">
+                      <div className="session-state-title">
                         <div className="completion-check">
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         </div>
-                        <div className="completion-copy">
-                          <strong>Workout completed</strong>
-                          <p>This session is now locked. You can share the result, but not edit the workout.</p>
-                        </div>
+                        <strong>Workout completed</strong>
                       </div>
-                      <button className="secondary completion-share-btn" style={{ marginTop: '16px' }} onClick={handleShareWorkout} disabled={isSharingWorkout}>
+                      <p className="session-state-body">This session is now locked. You can share the result, but not edit the workout.</p>
+                      <button className="secondary completion-share-btn" style={{ marginTop: '8px' }} onClick={handleShareWorkout} disabled={isSharingWorkout}>
                         {isSharingWorkout ? 'Preparing share card...' : 'Share today’s result'}
                       </button>
                     </div>
                   ) : isPastSession ? (
                     <div className="readonly-session-panel session-state-panel card" style={{ padding: '22px' }}>
-                      <strong>Earlier this week</strong>
-                      <p>This session is shown as a timeline reference only. It is no longer editable from Today.</p>
+                      <strong className="session-state-heading">Earlier this week</strong>
+                      <p className="session-state-body">This session is shown as a timeline reference only. It is no longer editable from Today.</p>
                     </div>
                   ) : (
                     <button
@@ -2840,33 +2868,18 @@ function App() {
                     </button>
                   )}
 
-                  <div style={{ marginTop: '20px', padding: '20px 22px', borderRadius: '16px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-light)', marginBottom: '8px' }}>Why today looks like this</div>
-                    <h4 style={{ margin: '0 0 6px', fontSize: '16px' }}>{todayMessaging.title}</h4>
-                    <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6' }}>{todayMessaging.body}</p>
-                    {(todayActionNote || appliedWorkoutMessaging) && (
-                      <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border)', fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.55' }}>
-                        {todayActionNote || appliedWorkoutMessaging}
-                      </div>
-                    )}
-                  </div>
-
                   {!isReadOnlySession && (
                   <div className="adjustment-section" style={{ marginTop: '24px' }}>
                     <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                      <h4 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: '700' }}>Adjust today's workout</h4>
+                      <h4 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: '700' }}>Adjust today's session</h4>
                       <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>Adapt your session based on time, energy, or equipment constraints.</p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                      {[
-                        { id: 'short', label: 'Only 20 min' },
-                        { id: 'tired', label: 'Low energy' },
-                        { id: 'machine_taken', label: 'Machine occupied' }
-                      ].map((adj) => (
+                      {ADJUSTMENT_OPTIONS.map((adj) => (
                         <button
                           key={adj.id}
                           className={adjustment === adj.id ? 'chip active-chip' : 'chip'}
-                          onClick={() => setAdjustment(adjustment === adj.id ? 'none' : adj.id as any)}
+                          onClick={() => setAdjustment(adjustment === adj.id ? 'none' : adj.id)}
                           style={{ fontSize: '13px', padding: '8px 16px' }}
                         >
                           {adj.label}
@@ -2877,7 +2890,7 @@ function App() {
                     {adjustment !== 'none' && (
                       <div className="adjusted-preview" style={{ marginTop: '20px', padding: '24px', background: 'var(--accent-soft)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: 'var(--accent)' }}>Recommended adjustment</h4>
+                          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: 'var(--accent)' }}>New line-up</h4>
                           <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--accent)' }}>{adjustment.replace('_', ' ')}</span>
                         </div>
                         {adjustmentMessaging && (
@@ -2909,7 +2922,7 @@ function App() {
                             setAdjustment('none')
                           }}
                         >
-                          Use this version
+                          Apply adjustment
                         </button>
                       </div>
                     )}
@@ -2936,35 +2949,31 @@ function App() {
                       : adaptExercisesToProfile(getWorkoutExercises(todayWorkout.title.replace(' (Light)', '')), profile)
 
                     return exercises.map((exercise: Exercise, index: number) => {
-                      const hasCuratedAlt = exercise.alternatives && exercise.alternatives.length > 0 && EXERCISE_LIBRARY[exercise.alternatives[0]]
-                      
                       return (
-                        <div key={`${exercise.name}-${index}`} className={`exercise-card ${isReadOnlySession ? 'readonly' : ''}`} style={{ padding: '24px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', transition: 'all 0.2s' }}>
-                          <div className="exercise-header" style={{ marginBottom: '16px' }}>
+                        <div key={`${exercise.name}-${index}`} className={`exercise-card desktop-exercise-card ${isReadOnlySession ? 'readonly' : ''}`} style={{ padding: '24px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', transition: 'all 0.2s' }}>
+                          <div className="exercise-header desktop-exercise-header" style={{ marginBottom: '16px' }}>
                             <div className="exercise-info">
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', letterSpacing: '-0.02em' }}>{exercise.name}</h3>
-                                {EXERCISE_LIBRARY[exercise.name] && (
-                                  <span style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: '800', textTransform: 'uppercase' }}>Curated</span>
-                                )}
+                              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', letterSpacing: '-0.02em' }}>{exercise.name}</h3>
+                              <div className="ex-tags desktop-ex-tags">
+                                <span>{exercise.muscle}</span>
+                                <span>{exercise.equipment}</span>
                               </div>
-                              <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{exercise.muscle} • {exercise.equipment}</p>
                             </div>
-                            <div className="exercise-reps" style={{ background: 'var(--bg)', padding: '6px 14px', borderRadius: '8px', fontSize: '14px', fontWeight: '700' }}>
-                              {exercise.sets} × {exercise.reps}
+                            <div className="exercise-reps desktop-ex-reps" style={{ background: 'var(--bg)', padding: '6px 14px', borderRadius: '8px', fontSize: '14px', fontWeight: '700' }}>
+                              {exercise.sets}×{exercise.reps}
                             </div>
                           </div>
 
                           {!isReadOnlySession && (
-                            <div className="exercise-actions" style={{ borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
-                              <button className="ghost" style={{ padding: '0', color: 'var(--text-muted)', fontSize: '13px', fontWeight: '600' }} onClick={() => handleWatchDemo(exercise)}>Watch demo</button>
+                            <div className="ex-actions desktop-ex-actions" style={{ borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+                              <button className="ghost ex-text-action" style={{ padding: '0', color: 'var(--text-muted)', fontSize: '13px', fontWeight: '600' }} onClick={() => handleWatchDemo(exercise)}>Watch demo</button>
                               {exercise.alternatives && exercise.alternatives.length > 0 && (
                                 <button 
-                                  className="secondary" 
+                                  className="secondary ex-secondary-action" 
                                   style={{ marginLeft: 'auto', fontSize: '12px', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)', color: 'var(--text-muted)' }} 
                                   onClick={() => handleSwapExercise(index)}
                                 >
-                                  {hasCuratedAlt ? `Swap for ${exercise.alternatives[0]}` : 'Swap exercise'}
+                                  Swap
                                 </button>
                               )}
                             </div>
@@ -2992,8 +3001,9 @@ function App() {
             </section>
           </div>
         )
+      }
 
-      case 'reflect':
+      case 'reflect': {
         if (isMobile) {
           return (
             <div className="reflect-mobile-layout">
@@ -3201,8 +3211,9 @@ function App() {
             </section>
           </div>
         )
+      }
 
-      case 'progress':
+      case 'progress': {
         if (isMobile) {
           return (
             <div className="progress-mobile-layout">
@@ -3298,6 +3309,7 @@ function App() {
             </section>
           </div>
         )
+      }
     }
   }
 
@@ -3448,10 +3460,6 @@ function App() {
                 <div className="sheet-handle"></div>
               </div>
             )}
-            {!isMobile && (
-              <button className="modal-close" onClick={() => setModalExercise(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'white', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', zIndex: 10 }}>×</button>
-            )}
-            
             <div className={`video-container ${isMobile ? 'sheet-video' : ''}`} style={{ width: '100%', aspectRatio: '16/9', background: '#000', position: 'relative' }}>
               {modalExercise.videoUrl && modalExercise.videoUrl.includes('embed') ? (
                 <iframe
@@ -3507,7 +3515,7 @@ function App() {
 
               <div className={isMobile ? 'sheet-footer' : ''} style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
                 <button className={isMobile ? 'secondary sheet-close-action' : 'primary-cta'} onClick={() => setModalExercise(null)} style={{ flex: 1, height: '48px', fontSize: '15px', borderRadius: '10px' }}>
-                  {isMobile ? 'Done' : 'Back to workout'}
+                  Done
                 </button>
               </div>
             </div>
